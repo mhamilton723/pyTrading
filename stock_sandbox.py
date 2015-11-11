@@ -11,6 +11,9 @@ from sklearn.ensemble import BaggingRegressor
 from sklearn.kernel_ridge import KernelRidge
 import matplotlib.pyplot as plt
 
+
+import pandas
+
 import statsmodels.api as sm
 
 import math
@@ -124,7 +127,7 @@ test_data = [regression_target(x) for x in range(training_samples, training_samp
 #model = linear_model.LinearRegression()
 model = KernelRidge(kernel='poly')
 test_train_plot(model, train_data, test_data, window=20)
-'''
+
 
 df = get_data(['AAPL', 'QQQ','VZ','NKE','KMI'])
 train_data = df.iloc[0:int(len(df) / 1.5), :]
@@ -132,8 +135,8 @@ test_data = df.iloc[int(len(df) / 1.5):len(df), :]
 dim_reducer = PCA(n_components=100)
 regressor = linear_model.LinearRegression()
 model = Pipeline([('PCA',dim_reducer),('regressor', regressor)])
-test_train_plot(model, train_data, test_data, window=40)
-
+test_train_plot(model, train_data, test_data, window=20)
+'''
 
 def parse_data(df):
     if df.ndim == 3:
@@ -155,16 +158,32 @@ def backtest_multi_stock(tickers, start="2013-1-1", end="2015-11-02", log=False)
     print(data.describe())
 
 
-def strategy_test(strategies, tickers, starting_capital=1000):
+def strategy_test(strategies, tickers, start="2014-1-1", end="2015-11-02", starting_capital=1000):
     for strategy_object in strategies:
         for ticker in tickers:
             strategy = strategy_object(starting_capital, ticker)
-            momentum_result = round(backtest(strategy), 2)
+            momentum_result = round(backtest(strategy,start=start, end=end), 2)
             print("Percent return for " + str(strategy) + " for stock " + ticker + ": %" + str(momentum_result))
 
+def load_s_and_p_data(start="2009-1-1", end="2015-11-02",
+                          ticker_names = "stock_sandbox/s_and_p_500_names.csv",
+                          clean=True):
 
-tickers = ['AAPL', 'QQQ', 'KMI', 'VZ', 'DD', 'VOD', 'MBLY', 'CTL']
-strategies = [MomentumStrategy, BuyAndHoldStrategy]
-# strategy_test(strategies, tickers)
+    s_and_p = pandas.read_csv(ticker_names)
+    tickers = list(s_and_p['Ticker'])
+    data = get_data(tickers, start=start, end=end)
+    if clean:
+        data = data.dropna(axis=1)
 
+    return data
+
+
+#strategies = [MomentumStrategy, BuyAndHoldStrategy]
+#strategy_test(strategies, tickers)
+#tickers = ['AAPL', 'QQQ', 'KMI', 'VZ', 'DD', 'VOD', 'MBLY', 'CTL']
+data = load_s_and_p_data()
+
+data.to_csv('stock_sandbox/s_and_p_500_data.csv')
+
+print(data.head())
 # backtest_multi_stock(tickers)
