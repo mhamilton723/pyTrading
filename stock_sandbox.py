@@ -18,17 +18,9 @@ import statsmodels.api as sm
 
 import math
 import random
+from utils import get_data
 
 
-def get_data(tickers, start="2014-1-1", end="2015-11-02"):
-    start_time = datetime.strptime(start, "%Y-%m-%d")
-    end_time = datetime.strptime(end, "%Y-%m-%d")
-    df = web.DataReader(tickers, 'yahoo', start_time, end_time)
-    df = df['Adj Close']
-    #df = df.diff()
-    #df = df.iloc[1:len(df),:]
-
-    return df
 
 
 '''
@@ -108,7 +100,7 @@ def test_train_plot(model, train_data, test_data, window=10, pandas=True, n_esti
         output = np.array(output)
         best_shape = (output.shape[1],1) if output.shape[1] < 4 else (math.ceil(output.shape[1]**.5),math.ceil(output.shape[1]**.5))
         for i in range(output.shape[1]):
-            plt.subplot(best_shape[0], best_shape[1], i)
+            plt.subplot(best_shape[0], best_shape[1], i+1)
             predicted = output[:, i]
             actual = test_data.iloc[:, i]
             plt.plot(predicted, color='r')
@@ -138,44 +130,7 @@ model = Pipeline([('PCA',dim_reducer),('regressor', regressor)])
 test_train_plot(model, train_data, test_data, window=20)
 '''
 
-def parse_data(df):
-    if df.ndim == 3:
-        return df.loc['Adj Close', :, :]
 
-
-def backtest_multi_stock(tickers, start="2013-1-1", end="2015-11-02", log=False):
-    """
-    :param start: starting date in %Y-%m-%d
-    :param end: ending date in %Y-%m-%d
-    :param log: flag to turn on logging
-    :return: return relative to first stock purchase
-    """
-    start_time = datetime.strptime(start, "%Y-%m-%d")
-    end_time = datetime.strptime(end, "%Y-%m-%d")
-    df = web.DataReader(tickers, 'yahoo', start_time, end_time)
-
-    data = parse_data(df)
-    print(data.describe())
-
-
-def strategy_test(strategies, tickers, start="2014-1-1", end="2015-11-02", starting_capital=1000):
-    for strategy_object in strategies:
-        for ticker in tickers:
-            strategy = strategy_object(starting_capital, ticker)
-            momentum_result = round(backtest(strategy,start=start, end=end), 2)
-            print("Percent return for " + str(strategy) + " for stock " + ticker + ": %" + str(momentum_result))
-
-def load_s_and_p_data(start="2009-1-1", end="2015-11-02",
-                          ticker_names = "stock_sandbox/s_and_p_500_names.csv",
-                          clean=True):
-
-    s_and_p = pandas.read_csv(ticker_names)
-    tickers = list(s_and_p['Ticker'])
-    data = get_data(tickers, start=start, end=end)
-    if clean:
-        data = data.dropna(axis=1)
-
-    return data
 
 
 #strategies = [MomentumStrategy, BuyAndHoldStrategy]

@@ -1,113 +1,147 @@
 from __future__ import print_function
-from keras.models import Sequential  
-from keras.layers.core import TimeDistributedDense, Activation, Dropout  
-
-from six.moves import cPickle
-import pickle
-import os
-#from keras.layers.recurrent import GRU
-import numpy as np
-import pandas.io.data as web
-from datetime import datetime
-from keras.models import Sequential  
-from keras.models import model_from_json
-from keras.layers.core import Dense, Activation  
-from keras.layers.recurrent import LSTM
-
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
+from six.moves import cPickle
+import pickle
+import os
+import random
+import numpy as np
+import pandas.io.data as web
+import pandas as pd
+from datetime import datetime
+# from keras.layers.recurrent import GRU
+from keras.models import Sequential, model_from_json
+from keras.layers.core import Dense, Activation, Dropout, TimeDistributedDense
+from keras.layers.recurrent import LSTM
+from keras.callbacks import EarlyStopping
+from utils import load_s_and_p_data, train_test_split, forecast, window_dataset
 
-save_model = True
+
+###################### Functions, Try to develop these and move into the utils folder ####################
+
+
+#######################CONTROL FLOW PARAMS#################################
+
+load_data = False
+save_data = True
 load_model = False
-arch_fname = 'results/my_model_architecture.json'
-weigths_fname = 'results/my_model_weights.h5'
+run_model = True
+save_model = True
+load_results = False
+save_results = True
+plot_results = True
 
-def _load_data(data, n_prev = 30):  
-    """
-    data should be pd.DataFrame()
-    """
-    docX, docY = [], []
-    for i in range(len(data)-n_prev):
-        docX.append(data.iloc[i:i+n_prev].as_matrix())
-        docY.append(data.iloc[i+n_prev].as_matrix())
-    alsX = np.array(docX)
-    alsY = np.array(docY)
-    return alsX, alsY
-	
-def train_test_split(df, test_size=0.1):  
-    """
-    This just splits data to training and testing parts
-    """
-    ntrn = round(len(df) * (1 - test_size))
+if (not load_results and not run_model) and save_results:
+    raise ValueError("Cannot save what has not been loaded or run ")
 
-    X_train, y_train = _load_data(df.iloc[0:ntrn])
-    X_test, y_test = _load_data(df.iloc[ntrn:])
+base_path = "~/machine_learning/stock_sandbox/"
+model_prefix = 'test'
+data_fname = base_path + "s_and_p_500_data.pkl"
+data_fname = os.path.expanduser(data_fname)
+arch_fname = base_path + 'results/' + model_prefix + '_model_architecture.json'
+arch_fname = os.path.expanduser(arch_fname)
+weights_fname = base_path + 'results/' + model_prefix + '_model_weights.h5'
+weights_fname = os.path.expanduser(weights_fname)
+plot_fname = base_path + 'results/' + model_prefix + '_results.png'
+plot_fname = os.path.expanduser(plot_fname)
+results_fname = base_path + 'results/' + model_prefix + '_results.pkl'
+results_fname = os.path.expanduser(results_fname)
 
-    return (X_train, y_train), (X_test, y_test)
 
-def get_data(tickers, start="2009-1-1", end="2015-11-02"):
-    start_time = datetime.strptime(start, "%Y-%m-%d")
-    end_time = datetime.strptime(end, "%Y-%m-%d")
-    df = web.DataReader(tickers, 'yahoo', start_time, end_time)
-    df = df['Adj Close']
-    #df = df.diff()
-    #df = df.iloc[1:len(df),:]
-    return df
-	
-np.random.seed(0)  # For reproducability
-tickers=['AAPL', 'QQQ','VZ','NKE','KMI']
-data = get_data(tickers)
-(X_train, y_train), (X_test, y_test) = train_test_split(data)
-print("Data loaded.")
+#########################BEGIN CODE#######################################
 
-if not load_model:
-	in_out_neurons = len(tickers)  
-	hidden_neurons = 300
-	model = Sequential()  
-	model.add(LSTM(in_out_neurons, hidden_neurons, return_sequences=False))  
-	model.add(Dense(hidden_neurons, in_out_neurons))  
-	model.add(Activation("linear"))  
-	model.compile(loss="mean_squared_error", optimizer="rmsprop")  
-	print('model compiled')
+if not load_results:
+    # tickers = ['AAPL','VZ','NKE','KMI','M','MS','WMT','DOW','MPC']
+    tickers = None
 
-	# and now train the model. 
-	model.fit(X_train, y_train, batch_size=30, nb_epoch=200, validation_split=0.1)	
+    if load_data:
+        print('Loading data...')
+        data = pickle.load(open(data_fname, 'r'))
+        if tickers:
+            data.loc(tickers)
+    else:
+        ##### Real Stock Data
+        #print('Using Stock data')
+        # data = load_s_and_p_data(start="2014-1-1",tickers=tickers)
+
+        ##### Synthetic data for testing purposes
+        print('Using Synthetic data')
+        values = 10000
+        s = pd.Series(range(values))
+        noise = pd.Series(np.random.randn(values))
+        s = s / 1000 #+ noise / 100
+        d = {'one': s * s * 100/values,
+             'two': np.sin(s * 10.),
+             'three': np.cos(s * 10),
+             'four': np.sin(s * s / 10) * np.sqrt(s) }
+        data = pd.DataFrame(d)
+
+
+    if save_data:
+        print('Saving data...')
+        pickle.dump(data, open(data_fname, 'wb+'))
+
+    (X_train, y_train), (X_test, y_test) = train_test_split(data, n_prev=10)
+
+    if not load_model:
+        print('compiling model')
+        in_out_neurons = len(data.columns)
+
+        model = Sequential()
+        hidden_neurons = 300
+        model.add(LSTM(in_out_neurons, hidden_neurons, return_sequences=False))
+        model.add(Dense(hidden_neurons, in_out_neurons))
+        model.add(Activation("linear"))
+
+        '''
+		model = Sequential() 
+		model.add(LSTM(in_out_neurons, 300, return_sequences=True))  
+		model.add(LSTM(300, 500, return_sequences=True))  
+		model.add(Dropout(0.2))  
+		model.add(LSTM(500, 200, return_sequences=False))  
+		model.add(Dropout(0.2))  
+		model.add(Dense(200, in_out_neurons))  
+		model.add(Activation("linear"))  
+		'''
+        model.compile(loss="mean_squared_error", optimizer="rmsprop")
+
+        print('Training model...')
+        early_stopping = EarlyStopping(monitor='val_loss', patience=20, verbose=0)
+        model.fit(X_train, y_train, batch_size=30, nb_epoch=100000, validation_split=0.1, callbacks=[early_stopping])
+    else:
+        print('Loading model...')
+        model = model_from_json(open(arch_fname).read())
+        model.load_weights(weights_fname)
+
+    if save_model:
+        print("Saving model...")
+        json_string = model.to_json()
+        open(arch_fname, 'w+').write(json_string)
+        model.save_weights(weights_fname, overwrite=True)
+
+    if run_model:
+        print('Running forecast...')
+        window = 1
+        predicted = forecast(model, X_test[-1, :, :], n_points=len(X_test))
+        rmse = np.sqrt(((predicted - y_test) ** 2).mean(axis=0)).mean()
+        print("RMSE:", rmse)
+
+    if save_results:
+        print('Saving results...')
+        pickle.dump((predicted, y_test), open(results_fname, 'wb+'))
 else:
-	print('Load model...')
-	model = model_from_json(open(arch_fname).read())
-	model.load_weights(weights_fname)	
+    print('Loading results...')
+    predicted, y_test = pickle.load(open(results_fname, 'r'))
 
-if save_model:
-	print("Saving model...")
-	#f not os.path.exists(model_file):
-	#	os.makedirs(sav)
-	#pickle.dump(model, open(model_fname, "wb"))	
-	
-	json_string = model.to_json()
-	open(arch_fname, 'w').write(json_string)
-	model.save_weights(weigths_fname,overwrite=True)
+if plot_results:
+    print('Plotting results...')
+    fig = plt.figure()
+    for i in range(4):
+        ax = fig.add_subplot(2, 2, i + 1)
+        ax.plot(predicted[:, i], color='r')
+        ax.plot(y_test[:, i], color='b')
+        if tickers:
+            ax.set_title(tickers[i])
 
-
-
-
-predicted = model.predict(X_test)  
-
-
-fig = plt.figure()
-ax = fig.add_subplot(221)
-ax.plot(predicted[:,0],color='r')
-ax.plot(X_test[:,0,0],color='b')
-ax = fig.add_subplot(222)
-ax.plot(predicted[:,1],color='r')
-ax.plot(X_test[:,0,1],color='b')
-ax = fig.add_subplot(223)
-ax.plot(predicted[:,2],color='r')
-ax.plot(X_test[:,0,2],color='b')
-ax = fig.add_subplot(224)
-ax.plot(predicted[:,3],color='r')
-ax.plot(X_test[:,0,3],color='b')
-
-fig.savefig('results/stock_rnn.png')
-
-print(np.sqrt(((predicted - y_test) ** 2).mean(axis=0)).mean())  # Printing RMSE 
+    fig.savefig(plot_fname)
