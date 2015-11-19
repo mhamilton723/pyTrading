@@ -3,62 +3,46 @@ from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin, clone
 from sklearn.pipeline import Pipeline
 
 
-class MetaEstimator(BaseEstimator):
-    # __slots__ = "algorithm","parameters"
+class TimeSeriesEstimator(BaseEstimator):
 
     # TODO make this more elegant
-    def __init__(self, **kwargs):
-        if 'base_algorithm' in kwargs:
-            algo = kwargs.pop('base_algorithm')
-            self.base_algorithm = algo
-        else:
-            self.base_algorithm = None
-
-        self.parameters = {}
-        if kwargs:
-            self.parameters = utils.dict_merge(self.parameters, kwargs)
+    def __init__(self, base_estimator, window=3):
+        self.base_estimator = base_estimator
+        self.window = window
 
     def __repr__(self):
-        return "MetaEstimator: "+repr(self.base_algorithm)
+        return "TimeSeriesEstimator: "+repr(self.base_algorithm)
 
-    def set_params(self, **params):
-        if 'base_algorithm' in params:
-            algo = params.pop('base_algorithm')
-            self.base_algorithm = algo
-        if not self.parameters:
-            self.parameters = {}
-        if params:
-            self.parameters = self.parameters = utils.dict_merge(self.parameters, params)
-        if self.base_algorithm and self.parameters:
-            self._update_algorithm()
-        return self
-
-    def _update_algorithm(self):
-        """Make and configure a copy of the `base_estimator_` attribute.
-
-        Warning: This method should be used to properly instantiate new
-        sub-estimators.
+    def _window_dataset(self,data, n_prev=1):
         """
-        if self.base_algorithm and self.parameters:
-            self.base_algorithm = self.base_algorithm.set_params(**self.parameters)
-        elif not self.base_algorithm:
-            raise ValueError("No algorithm found")
-        elif not self.parameters:
-            print("WARNING: No parameters found")
+        data should be pd.DataFrame()
+        """
+        docX, docY = [], []
+        for i in range(len(data) - n_prev):
+            docX.append(data.iloc[i:i + n_prev].as_matrix())
+            docY.append(data.iloc[i + n_prev].as_matrix())
+        alsX = np.array(docX)
+        alsY = np.array(docY)
+        return alsX, alsY
 
-    def get_params(self, deep=True):
-        out = {}
-        if self.base_algorithm is not None:
-            dict1 = self.base_algorithm.get_params(deep)
-            out.update(dict1)
-            out['base_algorithm'] = self.base_algorithm
-        if self.parameters:
-            dict2 = self.parameters
-            out.update(dict2)
-        return out
+    def _window_dataset_sklearn(self,df, window=3, pandas=True):
+        x_size = len(df) - window - 1
+        n_features = len(df.columns)
+        X = np.empty((x_size, window * n_features))
+        y = np.empty((x_size, n_features))
+        for i in range(x_size):
+            for f_i in range(n_features):
+                if pandas:
+                    X[i, window * f_i:window * (f_i + 1)] = df.iloc[i:i + window, f_i]
+                    y[i, f_i] = df.iloc[i + window, f_i]
+                else:
+                    X[i, window * f_i:window * (f_i + 1)] = df[i:i + window, f_i]
+                    y[i, f_i] = df[i + window, f_i]
+        return X, y
 
 
-class MetaRegressor(MetaEstimator):
+
+class TimeSeriesRegressor(TimeSeriesEstimator):
     # __slots__ = "fit_algorithm"
 
     # def __init__(self, **kwargs):
@@ -66,10 +50,10 @@ class MetaRegressor(MetaEstimator):
 
     def fit(self, X, Y=None):
         # self._update_algorithm()
-        return self.base_algorithm.fit(X, Y)
+        return self.base_estimator.fit(X, Y)
 
     def score(self, X, Y, **kwargs):
-        return self.base_algorithm.score(X, Y, **kwargs)
+        return self.base_estimator.score(X, Y, **kwargs)
 
     def predict(self, X):
-        return self.base_algorithm.predict(X)
+        return self.base_estimator.predict(X)

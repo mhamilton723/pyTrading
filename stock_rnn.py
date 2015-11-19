@@ -13,7 +13,7 @@ from datetime import datetime
 # from keras.layers.recurrent import GRU
 from keras.models import Sequential, model_from_json
 from keras.layers.core import Dense, Activation, Dropout, TimeDistributedDense
-from keras.layers.recurrent import LSTM
+from keras.layers.recurrent import LSTM, SimpleRNN
 from keras.callbacks import EarlyStopping
 from utils import load_s_and_p_data, train_test_split, forecast, window_dataset
 
@@ -36,7 +36,7 @@ if (not load_results and not run_model) and save_results:
     raise ValueError("Cannot save what has not been loaded or run ")
 
 base_path = "~/machine_learning/stock_sandbox/"
-model_prefix = 'basic'
+model_prefix = 'simple_RNN'
 data_fname = base_path + "s_and_p_500_data.pkl"
 data_fname = os.path.expanduser(data_fname)
 arch_fname = base_path + 'results/' + model_prefix + '_model_architecture.json'
@@ -50,10 +50,10 @@ results_fname = os.path.expanduser(results_fname)
 
 
 #########################BEGIN CODE#######################################
+# tickers = ['AAPL','VZ','NKE','KMI','M','MS','WMT','DOW','MPC']
+tickers = None
 
 if not load_results:
-    # tickers = ['AAPL','VZ','NKE','KMI','M','MS','WMT','DOW','MPC']
-    tickers = None
 
     if load_data:
         print('Loading data...')
@@ -98,7 +98,8 @@ if not load_results:
 
         model = Sequential()
         hidden_neurons = 300
-        model.add(LSTM(in_out_neurons, hidden_neurons, return_sequences=False))
+        #model.add(LSTM(in_out_neurons, hidden_neurons, return_sequences=False))
+        model.add(SimpleRNN(in_out_neurons, hidden_neurons, return_sequences=False))
         model.add(Dense(hidden_neurons, in_out_neurons))
         model.add(Activation("linear"))
 
@@ -115,8 +116,9 @@ if not load_results:
         model.compile(loss="mean_squared_error", optimizer="rmsprop")
 
         print('Training model...')
-        early_stopping = EarlyStopping(monitor='val_loss', patience=20, verbose=0)
-        model.fit(X_train, y_train, batch_size=30, nb_epoch=100000, validation_split=0.1, callbacks=[early_stopping])
+        early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0)
+        model.fit(X_train, y_train, batch_size=30, nb_epoch=10, validation_split=0.1, callbacks=[early_stopping])
+        #model.fit(X_train, y_train, batch_size=450, nb_epoch=10, validation_split=0.05)
     else:
         print('Loading model...')
         model = model_from_json(open(arch_fname).read())
@@ -131,7 +133,9 @@ if not load_results:
     if run_model:
         print('Running forecast...')
         window = 1
-        predicted = forecast(model, X_test[-1, :, :], n_points=len(X_test))
+        predicted = forecast(model, X_test[0, :, :], n_points=len(X_test))
+        wrong_predicted = model.predict(X_test)
+
         rmse = np.sqrt(((predicted - y_test) ** 2).mean(axis=0)).mean()
         print("RMSE:", rmse)
 
@@ -147,8 +151,9 @@ if plot_results:
     fig = plt.figure()
     for i in range(min(4, predicted.shape[1])):
         ax = fig.add_subplot(2, 2, i + 1)
-        ax.plot(predicted[:, i], color='r')
-        ax.plot(y_test[:, i], color='b')
+        ax.plot(predicted[:100, i], color='r')
+        ax.plot(wrong_predicted[:100, i], color='r', marker='+')
+        ax.plot(y_test[:100, i], color='b')
         if tickers:
             ax.set_title(tickers[i])
 
