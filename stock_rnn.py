@@ -36,7 +36,7 @@ if (not load_results and not run_model) and save_results:
     raise ValueError("Cannot save what has not been loaded or run ")
 
 base_path = "~/machine_learning/stock_sandbox/"
-model_prefix = 'test'
+model_prefix = 'basic'
 data_fname = base_path + "s_and_p_500_data.pkl"
 data_fname = os.path.expanduser(data_fname)
 arch_fname = base_path + 'results/' + model_prefix + '_model_architecture.json'
@@ -66,23 +66,31 @@ if not load_results:
         # data = load_s_and_p_data(start="2014-1-1",tickers=tickers)
 
         ##### Synthetic data for testing purposes
-        print('Using Synthetic data')
-        values = 10000
-        s = pd.Series(range(values))
-        noise = pd.Series(np.random.randn(values))
-        s = s / 1000 #+ noise / 100
-        d = {'one': s * s * 100/values,
-             'two': np.sin(s * 10.),
-             'three': np.cos(s * 10),
-             'four': np.sin(s * s / 10) * np.sqrt(s) }
-        data = pd.DataFrame(d)
+        #print('Using Synthetic data')
+        #values = 10000
+        #s = pd.Series(range(values))
+        #noise = pd.Series(np.random.randn(values))
+        #s = s / 1000 #+ noise / 100
+        #d = {'one': s * s * 100/values,
+        #     'two': np.sin(s * 10.),
+        #     'three': np.cos(s * 10),
+        #     'four': np.sin(s * s / 10) * np.sqrt(s) }
+        #data = pd.DataFrame(d)
+
+        ##### Easy synthetic data for testing purposes
+        print('Using Easy synthetic data')
+        flow = (list(range(1,10,1)) + list(range(10,1,-1)))*1000
+        pdata = pd.DataFrame({"a": flow, "b": flow})
+        pdata.b = pdata.b.shift(9)
+        data = pdata.iloc[10:] * random.random()  # some noise
+
 
 
     if save_data:
         print('Saving data...')
         pickle.dump(data, open(data_fname, 'wb+'))
 
-    (X_train, y_train), (X_test, y_test) = train_test_split(data, n_prev=10)
+    (X_train, y_train), (X_test, y_test) = train_test_split(data, n_prev=100)
 
     if not load_model:
         print('compiling model')
@@ -95,15 +103,15 @@ if not load_results:
         model.add(Activation("linear"))
 
         '''
-		model = Sequential() 
-		model.add(LSTM(in_out_neurons, 300, return_sequences=True))  
-		model.add(LSTM(300, 500, return_sequences=True))  
-		model.add(Dropout(0.2))  
-		model.add(LSTM(500, 200, return_sequences=False))  
-		model.add(Dropout(0.2))  
-		model.add(Dense(200, in_out_neurons))  
-		model.add(Activation("linear"))  
-		'''
+        model = Sequential()
+        model.add(LSTM(in_out_neurons, 300, return_sequences=True))
+        model.add(LSTM(300, 500, return_sequences=True))
+        model.add(Dropout(0.2))
+        model.add(LSTM(500, 200, return_sequences=False))
+        model.add(Dropout(0.2))
+        model.add(Dense(200, in_out_neurons))
+        model.add(Activation("linear"))
+        '''
         model.compile(loss="mean_squared_error", optimizer="rmsprop")
 
         print('Training model...')
@@ -137,7 +145,7 @@ else:
 if plot_results:
     print('Plotting results...')
     fig = plt.figure()
-    for i in range(4):
+    for i in range(min(4, predicted.shape[1])):
         ax = fig.add_subplot(2, 2, i + 1)
         ax.plot(predicted[:, i], color='r')
         ax.plot(y_test[:, i], color='b')
