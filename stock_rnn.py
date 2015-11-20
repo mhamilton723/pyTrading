@@ -36,7 +36,7 @@ if (not load_results and not run_model) and save_results:
     raise ValueError("Cannot save what has not been loaded or run ")
 
 base_path = "~/machine_learning/stock_sandbox/"
-model_prefix = 'simple_RNN'
+model_prefix = 'multilayer_RNN'
 data_fname = base_path + "s_and_p_500_data.pkl"
 data_fname = os.path.expanduser(data_fname)
 arch_fname = base_path + 'results/' + model_prefix + '_model_architecture.json'
@@ -96,28 +96,34 @@ if not load_results:
         print('compiling model')
         in_out_neurons = len(data.columns)
 
+        '''
+        #Simple RNN
         model = Sequential()
         hidden_neurons = 300
         #model.add(LSTM(in_out_neurons, hidden_neurons, return_sequences=False))
         model.add(SimpleRNN(in_out_neurons, hidden_neurons, return_sequences=False))
         model.add(Dense(hidden_neurons, in_out_neurons))
         model.add(Activation("linear"))
-
         '''
+
+
+        #Multilayer RNN
         model = Sequential()
-        model.add(LSTM(in_out_neurons, 300, return_sequences=True))
-        model.add(LSTM(300, 500, return_sequences=True))
+        model.add(SimpleRNN(in_out_neurons, 300, return_sequences=True))
+        model.add(SimpleRNN(300, 500, return_sequences=True))
         model.add(Dropout(0.2))
-        model.add(LSTM(500, 200, return_sequences=False))
+        model.add(SimpleRNN(500, 200, return_sequences=False))
         model.add(Dropout(0.2))
         model.add(Dense(200, in_out_neurons))
         model.add(Activation("linear"))
-        '''
+
+
+
         model.compile(loss="mean_squared_error", optimizer="rmsprop")
 
         print('Training model...')
         early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=0)
-        model.fit(X_train, y_train, batch_size=30, nb_epoch=10, validation_split=0.1, callbacks=[early_stopping])
+        model.fit(X_train, y_train, batch_size=450, nb_epoch=100000, validation_split=0.1, callbacks=[early_stopping])
         #model.fit(X_train, y_train, batch_size=450, nb_epoch=10, validation_split=0.05)
     else:
         print('Loading model...')
