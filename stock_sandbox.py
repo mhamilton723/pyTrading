@@ -18,7 +18,7 @@ import statsmodels.api as sm
 
 import math
 import random
-from utils import get_data
+from utils import load_s_and_p_data
 
 
 

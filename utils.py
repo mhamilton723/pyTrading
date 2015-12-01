@@ -53,7 +53,7 @@ def get_data(tickers, start="2014-1-1", end="2015-11-02"):
     return df
 
 def load_s_and_p_data(start="2009-1-1", end="2015-11-02",
-                          ticker_names = "~/machine_learning/stock_sandbox/s_and_p_500_names.csv", 
+                          ticker_names = "data/s_and_p_500_names.csv",
 						  tickers = None, clean=True):
 
     if not tickers:

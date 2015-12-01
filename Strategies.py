@@ -45,6 +45,18 @@ class SingleStockStrategy(Strategy):
             self.portfolio.sell_max(self.ticker, float(datum['Adj Close']))
 
 
+class MultiStockStrategy(Strategy):
+    def __init__(self, balance, tickers, log=False):
+        super(MultiStockStrategy, self).__init__(balance, log=log)
+        self.tickers = tickers
+
+    def liquidate(self, datum):
+        for ticker in self.tickers:
+            if self.portfolio.owns(ticker):
+                self.portfolio.sell_max(ticker, float(datum['Adj Close']))
+
+
+
 class BuyAndHoldStrategy(SingleStockStrategy):
     def __init__(self, balance, ticker, log=False):
         super(BuyAndHoldStrategy, self).__init__(balance, ticker, log=log)
@@ -93,5 +105,11 @@ class MomentumStrategy(SingleStockStrategy):
 
     def __str__(self):
         return "Momentum Strategy"
+
+
+
+
+
+
 
 
