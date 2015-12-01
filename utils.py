@@ -79,6 +79,60 @@ def window_dataset(data, n_prev=1):
     return alsX, alsY
 
 
+def masked_dataset(data, n_prev=3, n_masked = 2, predict_ahead=1):
+    """
+	data should be pd.DataFrame()
+	"""
+    docX, docY = [], []
+    for i in range(len(data) - n_prev - n_masked - predict_ahead):
+        x = data.iloc[i:i + n_prev].as_matrix()
+        x_mask = np.zeros((n_masked, x.shape[1]))
+        docX.append(np.concatenate((x, x_mask)))
+
+        y = data.iloc[i + predict_ahead : i + n_prev + n_masked + predict_ahead].as_matrix()
+        docY.append(y)
+    alsX = np.array(docX)
+    alsY = np.array(docY)
+    return alsX, alsY
+	
+def seq2seq_dataset(data, n_prev=50, n_masked = 50):
+    """
+	data should be pd.DataFrame()
+	"""
+    docX, docY = [], []
+    for i in range(len(data) - n_prev - n_masked):
+        x = data.iloc[i:i + n_prev].as_matrix()
+        docX.append(x)
+        y = data.iloc[i + n_prev: n_masked].as_matrix()
+        docY.append(y)
+    alsX = np.array(docX)
+    alsY = np.array(docY)
+    return alsX, alsY
+	
+
+def seq2seq_split(df, test_size=0.1, n_prev=3, n_masked = 2):
+    """
+	This just splits data to training and testing parts
+	"""
+
+    ntrn = int(len(df) * (1 - test_size))
+
+    X_train, y_train = seq2seq_dataset(df.iloc[0:ntrn], n_prev=n_prev, n_masked=n_masked)
+    X_test, y_test = seq2seq_dataset(df.iloc[ntrn:], n_prev=n_prev, n_masked=n_masked)
+
+    return (X_train, y_train), (X_test, y_test)
+	
+def mask_split(df, test_size=0.1, n_prev=3, n_masked = 2):
+    """
+	This just splits data to training and testing parts
+	"""
+
+    ntrn = int(len(df) * (1 - test_size))
+
+    X_train, y_train = masked_dataset(df.iloc[0:ntrn], n_prev=n_prev, n_masked=n_masked)
+    X_test, y_test = masked_dataset(df.iloc[ntrn:], n_prev=n_prev, n_masked=n_masked)
+
+    return (X_train, y_train), (X_test, y_test)
 
 def train_test_split(df, test_size=0.1, n_prev=1):
     """

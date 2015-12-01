@@ -1,0 +1,6 @@
+Using jigsaw data
+compiling model
+Training model...
+Train on 14436 samples, validate on 1605 samples
+Epoch 0
+  450/14436 [..............................] - ETA: 1275s - loss: 24.5334  900/14436 [>.............................] - ETA: 1235s - loss: 17.8056

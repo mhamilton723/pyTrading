@@ -1,0 +1,8 @@
+#!/bin/bash 
+#PBS -q fas_long 
+#PBS -N shallow_GRU 
+#PBS -l nodes=1:ppn=8,mem=5gb 
+#PBS -l walltime=71:00:00 
+#PBS -j oe 
+cd $PBS_O_WORKDIR 
+python ~/machine_learning/stock_sandbox/stock_rnn.py --model_name 'shallow_GRU" --dataset 'synthetic" > ~/machine_learning/stock_sandbox/scripts/shallow_GRU_synthetic_log.txt
