@@ -1,8 +1,8 @@
 #!/bin/bash 
-#PBS -q fas_long 
-#PBS -N deep_LSTM 
-#PBS -l nodes=1:ppn=8,mem=5gb 
-#PBS -l walltime=71:00:00 
-#PBS -j oe 
-cd $PBS_O_WORKDIR 
-python ~/machine_learning/stock_sandbox/stock_rnn.py --model_name 'deep_LSTM" --dataset 'jigsaw" > ~/machine_learning/stock_sandbox/scripts/deep_LSTM_jigsaw_log.txt
+		#PBS -q fas_long 
+		#PBS -N deep_LSTM_jigsaw 
+		#PBS -l nodes=1:ppn=8,mem=15gb 
+		#PBS -l walltime=71:00:00 
+		#PBS -j oe 
+		cd ~/machine_learning/stock_sandbox 
+		python stock_rnn.py --model_name deep_LSTM --dataset jigsaw > scripts/deep_LSTM_jigsaw_log.txt

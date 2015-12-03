@@ -135,10 +135,18 @@ test_train_plot(model, train_data, test_data, window=20)
 
 #strategies = [MomentumStrategy, BuyAndHoldStrategy]
 #strategy_test(strategies, tickers)
-#tickers = ['AAPL', 'QQQ', 'KMI', 'VZ', 'DD', 'VOD', 'MBLY', 'CTL']
-data = load_s_and_p_data()
+tickers = ['AAPL', 'QQQ', 'KMI', 'VZ', 'DD', 'VOD', 'CTL']
+ms = MomentumStrategy(10000, tickers)
+bs = BuyAndHoldStrategy(10000, tickers)
+print(backtest(ms, correct=False))
+print(backtest(bs, correct=False))
 
-data.to_csv('stock_sandbox/s_and_p_500_data.csv')
+#data = load_s_and_p_data()
 
-print(data.head())
+#print(np.arange(1, 6))
+#print(np.diag(np.arange(1, 6), 1))
+#print(np.diag(np.arange(1, 6), 2))
+#data.to_csv('stock_sandbox/data/sp500_data.pkl"')
+
+# print(data.head())
 # backtest_multi_stock(tickers)

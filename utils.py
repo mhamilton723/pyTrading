@@ -6,60 +6,58 @@ import random
 import numpy as np
 import pandas as pd
 
-def backtest(strategy, start="2014-1-1", end="2015-11-02", log=False):
+
+def get_data(tickers, start="2014-1-1", end="2015-11-02"):
+    start_time = datetime.strptime(start, "%Y-%m-%d")
+    end_time = datetime.strptime(end, "%Y-%m-%d")
+    df = web.DataReader(tickers, 'yahoo', start_time, end_time)
+    # df = df['Adj Close']
+    # df = df.diff()
+    # df = df.iloc[1:len(df),:]
+    return df
+
+
+def backtest(strategy, start="2014-1-1", end="2015-11-02", log=False, correct=True):
     """
     :param start: starting date in %Y-%m-%d
     :param end: ending date in %Y-%m-%d
     :param log: flag to turn on logging
     :return: return relative to first stock purchase
     """
-    start_time = datetime.strptime(start, "%Y-%m-%d")
-    end_time = datetime.strptime(end, "%Y-%m-%d")
-    df = web.DataReader(strategy.ticker, 'yahoo', start_time, end_time)
-
+    df = get_data(strategy.tickers, start, end)
     if df.empty:
         raise ValueError("No stock data found")
-
     if log:
         print(df.describe())
         strategy._log = True
-
     starting_balance = strategy.portfolio.balance
     strategy.observe_data(df)
-    ending_balance = strategy.portfolio.balance
-
+    ending_value = strategy.value(correct=correct)
     if log:
         for transaction in strategy.portfolio.transactions:
             print(transaction)
-        print(starting_balance, ending_balance)
+        print(starting_balance, ending_value)
 
-    return (ending_balance - starting_balance) * 100. / starting_balance
+    return (ending_value - starting_balance) * 100. / starting_balance
+
 
 def strategy_test(strategies, tickers, start="2014-1-1", end="2015-11-02", starting_capital=1000):
     for strategy_object in strategies:
         for ticker in tickers:
             strategy = strategy_object(starting_capital, ticker)
-            momentum_result = round(backtest(strategy,start=start, end=end), 2)
-            print("Percent return for " + str(strategy) + " for stock " + ticker + ": %" + str(momentum_result))
-	
-def get_data(tickers, start="2014-1-1", end="2015-11-02"):
-    start_time = datetime.strptime(start, "%Y-%m-%d")
-    end_time = datetime.strptime(end, "%Y-%m-%d")
-    df = web.DataReader(tickers, 'yahoo', start_time, end_time)
-    df = df['Adj Close']
-    #df = df.diff()
-    #df = df.iloc[1:len(df),:]
+            backtest_result = round(backtest(strategy, start=start, end=end), 2)
+            print("Percent return for " + str(strategy) + " for stock " + ticker + ": %" + str(backtest_result))
 
-    return df
 
 def load_s_and_p_data(start="2009-1-1", end="2015-11-02",
-                          ticker_names = "data/s_and_p_500_names.csv",
-						  tickers = None, clean=True):
-
+                      ticker_names="data/s_and_p_500_names.csv",
+                      tickers=None, clean=True, only_close=True):
     if not tickers:
-		s_and_p = pd.read_csv(ticker_names)
-		tickers = list(s_and_p['Ticker'])
+        s_and_p = pd.read_csv(ticker_names)
+        tickers = list(s_and_p['Ticker'])
     data = get_data(tickers, start=start, end=end)
+    if only_close:
+        data = data['Adj Close']
     if clean:
         data = data.dropna(axis=1)
 
@@ -68,18 +66,18 @@ def load_s_and_p_data(start="2009-1-1", end="2015-11-02",
 
 def window_dataset(data, n_prev=1):
     """
-	data should be pd.DataFrame()
-	"""
-    docX, docY = [], []
+    data should be pd.DataFrame()
+    """
+    dlistX, dlistY = [], []
     for i in range(len(data) - n_prev):
-        docX.append(data.iloc[i:i + n_prev].as_matrix())
-        docY.append(data.iloc[i + n_prev].as_matrix())
-    alsX = np.array(docX)
-    alsY = np.array(docY)
-    return alsX, alsY
+        dlistX.append(data.iloc[i:i + n_prev].as_matrix())
+        dlistY.append(data.iloc[i + n_prev].as_matrix())
+    darrX = np.array(dlistX)
+    darrY = np.array(dlistY)
+    return darrX, darrY
 
 
-def masked_dataset(data, n_prev=3, n_masked = 2, predict_ahead=1):
+def masked_dataset(data, n_prev=3, n_masked=2, predict_ahead=1):
     """
 	data should be pd.DataFrame()
 	"""
@@ -89,65 +87,63 @@ def masked_dataset(data, n_prev=3, n_masked = 2, predict_ahead=1):
         x_mask = np.zeros((n_masked, x.shape[1]))
         docX.append(np.concatenate((x, x_mask)))
 
-        y = data.iloc[i + predict_ahead : i + n_prev + n_masked + predict_ahead].as_matrix()
+        y = data.iloc[i + predict_ahead: i + n_prev + n_masked + predict_ahead].as_matrix()
         docY.append(y)
     alsX = np.array(docX)
     alsY = np.array(docY)
     return alsX, alsY
-	
-def seq2seq_dataset(data, n_prev=50, n_masked = 50):
+
+
+def prediction_dataset(data, n_samples=50, n_ahead=1):
     """
 	data should be pd.DataFrame()
 	"""
     docX, docY = [], []
-    for i in range(len(data) - n_prev - n_masked):
-        x = data.iloc[i:i + n_prev].as_matrix()
+    for i in range(len(data) - n_samples - n_ahead):
+        x = data.iloc[i:i + n_samples].as_matrix()
         docX.append(x)
-        y = data.iloc[i + n_prev: n_masked].as_matrix()
+        y = data.iloc[i + n_ahead: i + n_samples + n_ahead].as_matrix()
         docY.append(y)
     alsX = np.array(docX)
     alsY = np.array(docY)
     return alsX, alsY
-	
 
-def seq2seq_split(df, test_size=0.1, n_prev=3, n_masked = 2):
+
+def seq2seq_dataset(data, n_samples=50, n_ahead=50):
     """
-	This just splits data to training and testing parts
+	data should be pd.DataFrame()
 	"""
+    docX, docY = [], []
+    for i in range(len(data) - n_samples - n_ahead):
+        x = data.iloc[i:i + n_samples].as_matrix()
+        docX.append(x)
+        y = data.iloc[i + n_samples:i + n_samples + n_ahead].as_matrix()
+        docY.append(y)
+    alsX = np.array(docX)
+    alsY = np.array(docY)
+    return alsX, alsY
 
-    ntrn = int(len(df) * (1 - test_size))
 
-    X_train, y_train = seq2seq_dataset(df.iloc[0:ntrn], n_prev=n_prev, n_masked=n_masked)
-    X_test, y_test = seq2seq_dataset(df.iloc[ntrn:], n_prev=n_prev, n_masked=n_masked)
-
-    return (X_train, y_train), (X_test, y_test)
-	
-def mask_split(df, test_size=0.1, n_prev=3, n_masked = 2):
-    """
-	This just splits data to training and testing parts
-	"""
-
-    ntrn = int(len(df) * (1 - test_size))
-
-    X_train, y_train = masked_dataset(df.iloc[0:ntrn], n_prev=n_prev, n_masked=n_masked)
-    X_test, y_test = masked_dataset(df.iloc[ntrn:], n_prev=n_prev, n_masked=n_masked)
-
-    return (X_train, y_train), (X_test, y_test)
-
-def train_test_split(df, test_size=0.1, n_prev=1):
+def test_train_split(df, test_size=.1, splitting_method='prediction', **kwargs):
     """
 	This just splits data to training and testing parts
 	"""
 
     ntrn = round(len(df) * (1 - test_size))
 
-    X_train, y_train = window_dataset(df.iloc[0:ntrn], n_prev=n_prev)
-    X_test, y_test = window_dataset(df.iloc[ntrn:], n_prev=n_prev)
+    splitting_methods = {'prediction': prediction_dataset,
+                         'window': window_dataset,
+                         'seq2seq': seq2seq_dataset,
+                         'mask': masked_dataset}
+    method = splitting_methods[splitting_method]
+
+    X_train, y_train = method(df.iloc[0:ntrn], **kwargs)
+    X_test, y_test = method(df.iloc[ntrn:], **kwargs)
 
     return (X_train, y_train), (X_test, y_test)
 
 
-def forecast(model, seed, n_points=300, percent_noise=.002):
+def forecast_old(model, seed, n_points=300, percent_noise=.002):
     output = np.empty((n_points, seed.shape[1]))
     values = np.empty((n_points, seed.shape[0], seed.shape[1]))
     values[0, :] = seed
@@ -163,5 +159,19 @@ def forecast(model, seed, n_points=300, percent_noise=.002):
                 values[i + 1, :] = np.hstack((values[i, 1:, :], y_pred))
             else:
                 values[i + 1, :] = y_pred
+
+    return output
+
+
+def forecast(model, seed, n_ahead=300):
+    output = np.empty((n_ahead, seed.shape[1]))
+
+    prev = seed
+    for i in range(n_ahead):
+        pred = model.predict(np.expand_dims(prev, axis=0))
+        new_val = pred[0, -1, :]
+        output[i, :] = new_val
+        # print(seed.shape,new_val.shape)
+        prev = np.vstack((seed[:-1, :], new_val))
 
     return output

@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+
 class Portfolio(object):
     def __init__(self, balance=0, commission=.0002, flat_rate=8, equity=None):
         self.flat_rate = flat_rate
@@ -7,6 +8,17 @@ class Portfolio(object):
         self.balance = balance
         self.equity = defaultdict(int) if not equity else equity
         self.transactions = []
+
+    def tickers(self):
+        return self.equity.keys()
+
+    def value(self, datum, correct=True):
+        if correct:
+            return sum(self.corrected_price(datum['Adj Close'][ticker],
+                                            self.equity[ticker],
+                                            buying=False) for ticker in self.tickers()) + self.balance
+        else:
+            return sum(datum['Adj Close'][ticker] * self.equity[ticker] for ticker in self.tickers()) + self.balance
 
     def owns(self, ticker):
         if ticker in self.equity:
@@ -20,8 +32,14 @@ class Portfolio(object):
         else:
             return 0
 
+    def corrected_price(self, price, shares, buying):
+        if buying:
+            return price * shares + (shares * price * self.commission) + self.flat_rate
+        else:
+            return price * shares - (shares * price * self.commission) - self.flat_rate
+
     def sell(self, ticker, price, shares=1):
-        corrected_price = price * shares - (shares * price * self.commission) - self.flat_rate
+        corrected_price = self.corrected_price(price, shares,buying=False)
         if self.equity[ticker] >= shares:
             self.equity[ticker] -= shares
             self.balance += corrected_price
@@ -36,7 +54,7 @@ class Portfolio(object):
             raise ValueError("Cannot sell what you do not own")
 
     def buy(self, ticker, price, shares=1):
-        corrected_price = price * shares + (shares * price * self.commission) + self.flat_rate
+        corrected_price = self.corrected_price(price, shares, buying=True)
         if self.balance >= corrected_price:
             self.equity[ticker] += shares
             self.balance -= corrected_price
@@ -44,10 +62,15 @@ class Portfolio(object):
         else:
             raise ValueError("Cannot afford to buy this stock")
 
-    def buy_max(self, ticker, price):
-        corrected_price = price + (price * self.commission) + self.flat_rate
-        if self.balance >= corrected_price:
-            n_shares = int(self.balance / corrected_price)
-            self.buy(ticker, price, n_shares)
+    def buy_max(self, ticker, price, weight=1.):
+        if price:
+            corrected_price = price + (price * self.commission)
+            if self.balance - self.flat_rate >= corrected_price:
+                n_shares = int((self.balance - self.flat_rate) * weight / corrected_price)
+                self.buy(ticker, price, n_shares)
+            else:
+                raise ValueError("Cannot afford to buy this stock")
         else:
-            raise ValueError("Cannot afford to buy this stock")
+            raise ValueError('No price found, dataset may be missing values')
+
+
