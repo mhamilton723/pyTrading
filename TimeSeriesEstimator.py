@@ -1,59 +1,123 @@
-
+import numpy as np
+import pandas as pd
+import math
+import matplotlib.pyplot as plt
+from sklearn import linear_model
 from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin, clone
 from sklearn.pipeline import Pipeline
+from utils import datasets
 
 
 class TimeSeriesEstimator(BaseEstimator):
-
-    # TODO make this more elegant
     def __init__(self, base_estimator, window=3):
         self.base_estimator = base_estimator
         self.window = window
 
     def __repr__(self):
-        return "TimeSeriesEstimator: "+repr(self.base_algorithm)
+        return "TimeSeriesEstimator: " + repr(self.base_algorithm)
 
-    def _window_dataset(self,data, n_prev=1):
+    def _window_dataset(self, n_prev, dataX, dataY=None):
         """
-        data should be pd.DataFrame()
+        converts a dataset into an autocorrelation dataset with number of previous time steps = n_prev
+        returns a an X dataset of shape (samples,timesteps,features) and a Y dataset of shape (samples,features)
         """
-        docX, docY = [], []
-        for i in range(len(data) - n_prev):
-            docX.append(data.iloc[i:i + n_prev].as_matrix())
-            docY.append(data.iloc[i + n_prev].as_matrix())
-        alsX = np.array(docX)
-        alsY = np.array(docY)
-        return alsX, alsY
+        is_pandas = isinstance(dataX, pd.DataFrame)
 
-    def _window_dataset_sklearn(self,df, window=3, pandas=True):
-        x_size = len(df) - window - 1
-        n_features = len(df.columns)
-        X = np.empty((x_size, window * n_features))
-        y = np.empty((x_size, n_features))
-        for i in range(x_size):
-            for f_i in range(n_features):
-                if pandas:
-                    X[i, window * f_i:window * (f_i + 1)] = df.iloc[i:i + window, f_i]
-                    y[i, f_i] = df.iloc[i + window, f_i]
+        if dataY:
+            assert (type(dataX) is type(dataY))
+            assert (len(dataX) == len(dataY))
+
+        dlistX, dlistY = [], []
+        for i in range(len(dataX) - n_prev):
+            if is_pandas:
+                dlistX.append(dataX.iloc[i:i + n_prev].as_matrix())
+                if dataY:
+                    dlistY.append(dataY.iloc[i + n_prev].as_matrix())
                 else:
-                    X[i, window * f_i:window * (f_i + 1)] = df[i:i + window, f_i]
-                    y[i, f_i] = df[i + window, f_i]
-        return X, y
+                    dlistY.append(dataX.iloc[i + n_prev].as_matrix())
+            else:
+                dlistX.append(dataX[i:i + n_prev])
+                if dataY:
+                    dlistY.append(dataY[i + n_prev])
+                else:
+                    dlistY.append(dataX[i + n_prev])
 
+        darrX = np.array(dlistX)
+        darrY = np.array(dlistY)
+        return darrX, darrY
+
+    def _unravel_window_data(self, data):
+        dlist = []
+        for i in range(data.shape[0]):
+            dlist.append(data[i, :, :].ravel())
+        return np.array(dlist)
+
+    def _preprocess(self, X, Y):
+        X_wind, Y_data = self._window_dataset(self.window, X, Y)
+        X_data = self._unravel_window_data(X_wind)
+        return X_data, Y_data
+
+    def fit(self, X, Y=None):
+        ''' X and Y are datasets in chronological order, or X is a time series '''
+
+        return self.base_estimator.fit(*self._preprocess(X, Y))
 
 
 class TimeSeriesRegressor(TimeSeriesEstimator):
-    # __slots__ = "fit_algorithm"
-
-    # def __init__(self, **kwargs):
-    #    super(MetaRegressor, self).__init__(**kwargs)
-
-    def fit(self, X, Y=None):
-        # self._update_algorithm()
-        return self.base_estimator.fit(X, Y)
-
     def score(self, X, Y, **kwargs):
-        return self.base_estimator.score(X, Y, **kwargs)
+        return self.base_estimator.score(*self._preprocess(X, Y), **kwargs)
 
     def predict(self, X):
-        return self.base_estimator.predict(X)
+        return self.base_estimator.predict(self._preprocess(X, Y=None)[0])
+
+
+def time_series_split(df, test_size=.2, output_numpy=True):
+    is_pandas = isinstance(df, pd.DataFrame)
+    ntrn = int(len(df) * (1 - test_size))
+
+    if is_pandas:
+        X_train = df.iloc[0:ntrn]
+        X_test = df.iloc[ntrn:]
+    else:
+        X_train = df[0:ntrn]
+        X_test = df[ntrn:]
+
+    if output_numpy and is_pandas:
+        return X_train.as_matrix(), X_test.as_matrix()
+    else:
+        return X_train, X_test
+
+
+df = datasets('synthetic')
+model = linear_model.LinearRegression()
+time_model = TimeSeriesRegressor(model, window=1)
+X_train, X_test = time_series_split(df)
+
+time_model.fit(X_train)
+res_test = time_model.predict(X_test)
+res_train = time_model.predict(X_train)
+print(res_test.shape, res_train.shape, X_train.shape, X_test.shape)
+
+
+plot_train = False
+for dim in range(min(res_test.shape[1], 4)):
+    plt.subplot(2, 2, dim + 1)
+    if plot_train:
+        plt.plot(res_train[:, dim], label='Results test')
+        plt.plot(X_train[3:, dim], label='Test')
+    else:
+        plt.plot(res_test[:, dim], label='Results test')
+        plt.plot(X_test[3:, dim], label='Test')
+    plt.legend(loc='upper left')
+
+
+plt.show()
+
+
+# df = get_data(['AAPL', 'QQQ','VZ','NKE','KMI'])
+# train_data = df.iloc[0:int(len(df) / 1.5), :]
+# test_data = df.iloc[int(len(df) / 1.5):len(df), :]
+# dim_reducer = PCA(n_components=100)
+# regressor = linear_model.LinearRegression()
+# model = Pipeline([('PCA',dim_reducer),('regressor', regressor)])
+# test_train_plot(model, train_data, test_data, window=20)

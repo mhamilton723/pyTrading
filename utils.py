@@ -6,6 +6,58 @@ import random
 import numpy as np
 import pandas as pd
 
+def datasets(name, tickers=None):
+    if name == "sp500":
+        ##### Real Stock Data
+        print('Using sp500 data')
+        data = load_s_and_p_data(start="2014-1-1", tickers=tickers)
+    elif name == "synthetic":
+        ##### Synthetic data for testing purposes
+        print('Using Synthetic data')
+        values = 10000
+        s = pd.Series(range(values))
+        noise = pd.Series(np.random.randn(values))
+        s = s / 1000  # + noise / 100
+        d = {'one': s * s * 100 / values,
+             'two': np.sin(s * 10.),
+             'three': np.cos(s * 10),
+             'four': np.sin(s * s / 10) * np.sqrt(s)}
+        data = pd.DataFrame(d)
+    elif name == "jigsaw":
+        ##### Easy synthetic data for testing purposes
+        print('Using jigsaw data')
+        flow = (list(range(1, 10, 1)) + list(range(10, 1, -1))) * 1000
+        pdata = pd.DataFrame({"a": flow, "b": flow})
+        pdata.b = pdata.b.shift(9)
+        data = pdata.iloc[10:] * random.random()  # some noise
+    elif name == "linear":
+        ##### Easy synthetic data for testing purposes
+        print('Using linear data')
+        flow = list(range(0, 10000, 2))
+        pdata = pd.DataFrame({"a": flow, "b": flow})
+        pdata.b = pdata.b + .5
+        data = pdata
+        #pdata.iloc[10:] * random.random()  # some noise
+    elif name == "autocorr":
+        ##### Easy synthetic data for testing purposes
+        print('Using autocorr data')
+        flow1 = gen_linear_seq(1.01, .002)
+        flow2 = gen_linear_seq(1.02, .001)
+        pdata = pd.DataFrame({"a": flow1, "b": flow2})
+        data = pdata
+
+    else:
+        raise ValueError('Not a legal dataset name')
+
+    return data
+
+
+def gen_linear_seq(a, b, N=10000, start=1):
+    out = [start]
+    for i in range(1, N):
+        out.append(out[-1] * a + b)
+    return out
+
 
 def get_data(tickers, start="2014-1-1", end="2015-11-02"):
     start_time = datetime.strptime(start, "%Y-%m-%d")
@@ -129,7 +181,7 @@ def test_train_split(df, test_size=.1, splitting_method='prediction', **kwargs):
 	This just splits data to training and testing parts
 	"""
 
-    ntrn = round(len(df) * (1 - test_size))
+    ntrn = int(len(df) * (1 - test_size))
 
     splitting_methods = {'prediction': prediction_dataset,
                          'window': window_dataset,

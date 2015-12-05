@@ -9,6 +9,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from sklearn.ensemble import BaggingRegressor
 from sklearn.kernel_ridge import KernelRidge
+from sklearn.gaussian_process import GaussianProcess
 import matplotlib.pyplot as plt
 
 
@@ -18,7 +19,7 @@ import statsmodels.api as sm
 
 import math
 import random
-from utils import load_s_and_p_data
+from utils import load_s_and_p_data, datasets
 
 
 
@@ -136,12 +137,15 @@ test_train_plot(model, train_data, test_data, window=20)
 #strategies = [MomentumStrategy, BuyAndHoldStrategy]
 #strategy_test(strategies, tickers)
 tickers = ['AAPL', 'QQQ', 'KMI', 'VZ', 'DD', 'VOD', 'CTL']
-ms = MomentumStrategy(10000, tickers)
-bs = BuyAndHoldStrategy(10000, tickers)
-print(backtest(ms, correct=False))
-print(backtest(bs, correct=False))
+#ms = MomentumStrategy(10000, tickers)
+#bs = BuyAndHoldStrategy(10000, tickers)
+#print(backtest(ms, correct=False))
+#print(backtest(bs, correct=False))
 
-#data = load_s_and_p_data()
+#data = datasets('synthetic')
+#print(data.head())
+
+
 
 #print(np.arange(1, 6))
 #print(np.diag(np.arange(1, 6), 1))
@@ -150,3 +154,58 @@ print(backtest(bs, correct=False))
 
 # print(data.head())
 # backtest_multi_stock(tickers)
+
+
+
+
+def f(x, noise=0):
+    """The function to predict."""
+    res = np.array([x * np.sin(x), x * np.cos(x)])
+    np.transpose(res[:, :, 0])
+    res += np.random.randn(*res.shape) * noise
+    return res
+
+#----------------------------------------------------------------------
+#  First the noiseless case
+X = np.atleast_2d(np.linspace(0, 10)).T
+
+# Observations
+noise = 1.
+y = np.transpose(np.array(f(X, noise=noise)[:, :, 0])) #.ravel()
+dy = np.ones(y.shape) * noise
+
+# Mesh the input space for evaluations of the real function, the prediction and
+# its MSE
+x = np.atleast_2d(np.linspace(0, 15, 1000)).T
+
+# Instanciate a Gaussian Process model
+gp = GaussianProcess(corr='cubic', theta0=1e-2, thetaL=1e-4, thetaU=1e-1,
+                     random_start=100, nugget=(dy[:, 0] / y[:, 0])**2)
+
+# Fit to data using Maximum Likelihood Estimation of the parameters
+gp.fit(X, y)
+
+# Make the prediction on the meshed x-axis (ask for MSE as well)
+y_pred, MSE = gp.predict(x, eval_MSE=True)
+y_actual = np.transpose(np.array(f(x)[:, :, 0]))
+
+sigma = np.sqrt(MSE)
+
+# Plot the function, the prediction and the 95% confidence interval based on
+# the MSE
+for i in range(2):
+    plt.subplot(1, 2, i + 1)
+    plt.plot(x, y_actual[:, i], 'r:', label=u'$f(x) = x\,\sin(x)$')
+    plt.errorbar(X[:, 0], y[:, i], dy[:, i], fmt='r.', markersize=10, label=u'Observations')
+    plt.plot(x, y_pred[:, i], 'b-', label=u'Prediction')
+    plt.fill(np.concatenate([x, x[::-1]]),
+            np.concatenate([y_pred[:, i] - 1.9600 * sigma,
+                           (y_pred[:, i] + 1.9600 * sigma)[::-1]]),
+            alpha=.5, fc='b', ec='None', label='95% confidence interval')
+    plt.xlabel('$x$')
+    plt.ylabel('$f(x)$')
+    plt.ylim(-20, 20)
+    plt.xlim(0, 15)
+    plt.legend(loc='upper left')
+
+plt.show()
