@@ -88,26 +88,24 @@ def time_series_split(df, test_size=.2, output_numpy=True):
         return X_train, X_test
 
 
-df = datasets('synthetic')
+window = 1
+df = datasets('sp500')
 model = linear_model.LinearRegression()
-time_model = TimeSeriesRegressor(model, window=1)
+time_model = TimeSeriesRegressor(model, window=window)
 X_train, X_test = time_series_split(df)
-
 time_model.fit(X_train)
 res_test = time_model.predict(X_test)
 res_train = time_model.predict(X_train)
-print(res_test.shape, res_train.shape, X_train.shape, X_test.shape)
-
 
 plot_train = False
 for dim in range(min(res_test.shape[1], 4)):
     plt.subplot(2, 2, dim + 1)
     if plot_train:
         plt.plot(res_train[:, dim], label='Results test')
-        plt.plot(X_train[3:, dim], label='Test')
+        plt.plot(X_train[window:, dim], label='Test')
     else:
         plt.plot(res_test[:, dim], label='Results test')
-        plt.plot(X_test[3:, dim], label='Test')
+        plt.plot(X_test[window:, dim], label='Test')
     plt.legend(loc='upper left')
 
 

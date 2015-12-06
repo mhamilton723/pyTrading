@@ -6,6 +6,7 @@ import random
 import numpy as np
 import pandas as pd
 
+
 def datasets(name, tickers=None):
     if name == "sp500":
         ##### Real Stock Data
@@ -59,6 +60,27 @@ def gen_linear_seq(a, b, N=10000, start=1):
     return out
 
 
+def cache(cache_file):
+    def cache_decorator(func):
+        def func_wrapper(*args, **kwargs):
+            if os.path.exists(cache_file):
+                loaded_args, loaded_kwargs, loaded_data = pickle.load(open(cache_file, 'r'))
+                load_success = True
+            else:
+                load_success = False
+                loaded_args, loaded_kwargs, loaded_data = None, None, None
+
+            if load_success and loaded_args == args and loaded_kwargs == kwargs:
+                return loaded_data
+            else:
+                data = func(*args, **kwargs)
+                obj = args, kwargs, data
+                pickle.dump(obj, open(cache_file, 'w+'))
+                return data
+        return func_wrapper
+    return cache_decorator
+
+@cache("data/stock_data_cache.pkl")
 def get_data(tickers, start="2014-1-1", end="2015-11-02"):
     start_time = datetime.strptime(start, "%Y-%m-%d")
     end_time = datetime.strptime(end, "%Y-%m-%d")
