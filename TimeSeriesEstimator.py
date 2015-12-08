@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator, RegressorMixin
 
 
-class TimeSeriesEstimator(BaseEstimator):
+class TimeSeriesEstimator(BaseEstimator): 
     def __init__(self, base_estimator, n_prev=3, n_ahead=1):
         self.base_estimator = base_estimator
         self.n_prev = n_prev
