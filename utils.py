@@ -18,11 +18,11 @@ def datasets(name, tickers=None):
         values = 10000
         s = pd.Series(range(values))
         noise = pd.Series(np.random.randn(values))
-        s = s / 1000  # + noise / 100
+        s = s / 1000 + noise / 100.
         d = {'one': s * s * 100 / values,
              'two': np.sin(s * 10.),
              'three': np.cos(s * 10),
-             'four': np.sin(s * s / 10) * np.sqrt(s)}
+             'four': np.sin(s * s / 10) * np.sqrt(abs(s)+.002)}
         data = pd.DataFrame(d)
     elif name == "jigsaw":
         ##### Easy synthetic data for testing purposes

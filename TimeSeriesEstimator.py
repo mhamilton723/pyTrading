@@ -23,21 +23,21 @@ class TimeSeriesEstimator(BaseEstimator):
         """
         is_pandas = isinstance(dataX, pd.DataFrame)
 
-        if dataY:
-            assert (type(dataX) is type(dataY))
+        if dataY is not None:
+            #assert (type(dataX) is type(dataY)) TODO find way to still perform this check
             assert (len(dataX) == len(dataY))
 
         dlistX, dlistY = [], []
         for i in range(len(dataX) - n_prev):
             if is_pandas:
                 dlistX.append(dataX.iloc[i:i + n_prev].as_matrix())
-                if dataY:
+                if dataY is not None:
                     dlistY.append(dataY.iloc[i + n_prev].as_matrix())
                 else:
                     dlistY.append(dataX.iloc[i + n_prev].as_matrix())
             else:
                 dlistX.append(dataX[i:i + n_prev])
-                if dataY:
+                if dataY is not None:
                     dlistY.append(dataY[i + n_prev])
                 else:
                     dlistY.append(dataX[i + n_prev])
@@ -68,45 +68,101 @@ class TimeSeriesRegressor(TimeSeriesEstimator):
         return self.base_estimator.score(*self._preprocess(X, Y), **kwargs)
 
     def predict(self, X):
-        return self.base_estimator.predict(self._preprocess(X, Y=None)[0])
+        X_new = self._preprocess(X, Y=None)[0]
+        return self.base_estimator.predict(X_new)
 
 
-def time_series_split(df, test_size=.2, output_numpy=True):
-    is_pandas = isinstance(df, pd.DataFrame)
-    ntrn = int(len(df) * (1 - test_size))
+def time_series_split(X, test_size=.2, output_numpy=True):
+    is_pandas = isinstance(X, pd.DataFrame) or isinstance(X, pd.Series)
+    ntrn = int(len(X) * (1 - test_size))
 
     if is_pandas:
-        X_train = df.iloc[0:ntrn]
-        X_test = df.iloc[ntrn:]
+        X_train = X.iloc[0:ntrn]
+        X_test = X.iloc[ntrn:]
     else:
-        X_train = df[0:ntrn]
-        X_test = df[ntrn:]
+        X_train = X[0:ntrn]
+        X_test = X[ntrn:]
 
     if output_numpy and is_pandas:
         return X_train.as_matrix(), X_test.as_matrix()
     else:
         return X_train, X_test
 
+def safe_shape(array,i):
+    try:
+        return array.shape[i]
+    except IndexError:
+        if i > 0:
+            return 1
+        else:
+            raise IndexError
 
-window = 1
-df = datasets('sp500')
-model = linear_model.LinearRegression()
-time_model = TimeSeriesRegressor(model, window=window)
-X_train, X_test = time_series_split(df)
-time_model.fit(X_train)
-res_test = time_model.predict(X_test)
-res_train = time_model.predict(X_train)
+def mse(X1, X2):
+    return np.mean((X1 - X2)**2, axis=0)**.5
+
+
+X = datasets('sp500')
+y = X
+#X = datasets('synthetic')
+#y = X
+
+X_train, X_test = time_series_split(X)
+y_train, y_test = time_series_split(y)
+
+
+windows = range(1, 10)
+mses_train = np.empty((len(windows), safe_shape(y_train, 1)))
+mses_test = np.empty((len(windows), safe_shape(y_train, 1)))
+for i, window in enumerate(windows):
+    model = linear_model.LinearRegression()
+    time_model = TimeSeriesRegressor(model, window=window)
+    time_model.fit(X_train, y_train)
+    res_test = time_model.predict(X_test)
+    res_train = time_model.predict(X_train)
+    mses_train[i, :] = mse(res_train, y_train[window:])
+    mses_test[i, :] = mse(res_test, y_test[window:])
+
+
+plt.boxplot(np.transpose(mses_test))
+plt.yscale('log')
+
 
 plot_train = False
-for dim in range(min(res_test.shape[1], 4)):
-    plt.subplot(2, 2, dim + 1)
-    if plot_train:
-        plt.plot(res_train[:, dim], label='Results test')
-        plt.plot(X_train[window:, dim], label='Test')
-    else:
-        plt.plot(res_test[:, dim], label='Results test')
-        plt.plot(X_test[window:, dim], label='Test')
-    plt.legend(loc='upper left')
+if plot_train: res_plot = res_train; y_plot = y_train
+else: res_plot = res_test; y_plot = y_test
+low = 0
+high = 50#len(res_test)-window
+
+plot_res_vs_actual = False
+plot_scatter = False
+if plot_res_vs_actual:
+    for dim in range(min(safe_shape(res_plot, 1), 4)):
+        plt.subplot(2, 2, dim + 1)
+
+        if safe_shape(res_test, 1) == 1:
+            plt.plot(res_plot[low:high], label='Predicted')
+            plt.plot(y_plot[window + low : window + high], label='Actual')
+        else:
+            plt.plot(res_plot[low:high, dim], label='Predicted')
+            plt.plot(y_plot[window + low : window + high, dim], label='Actual')
+        plt.legend(loc='lower left')
+
+if plot_scatter:
+    for dim in range(min(safe_shape(res_plot, 1), 4)):
+        plt.subplot(2, 2, dim + 1)
+
+        if safe_shape(res_test, 1) == 1:
+            xs = np.diff(y_plot[window + low:window + high])
+            ys = np.diff(res_plot[:])
+        else:
+            xs = np.diff(y_plot[window + low : window + high, dim])
+            ys = np.diff(res_plot[low:high, dim])
+
+
+        plt.plot(xs, ys, 'ko')
+        plt.xlabel('actual')
+        plt.ylabel('predicted')
+
 
 
 plt.show()
