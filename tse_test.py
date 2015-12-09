@@ -1,83 +1,63 @@
 import numpy as np
-import pandas as pd
-import math
 import matplotlib.pyplot as plt
-from sklearn import linear_model
+from sklearn.linear_model import LinearRegression, Lasso
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.pipeline import Pipeline
-from utils import datasets, time_series_split, safe_shape, mse
-from TimeSeriesEstimator import TimeSeriesRegressor
+from sklearn.grid_search import GridSearchCV
+from utils import datasets, safe_shape, mse
+from TimeSeriesEstimator import TimeSeriesRegressor, time_series_split
 
 X = datasets('sp500')
-y = X
-#X = datasets('synthetic')
-#y = X
+y = X['AAPL']
 
 X_train, X_test = time_series_split(X)
 y_train, y_test = time_series_split(y)
 
 
-n_prevs = range(1, 10)
-mses_train = np.empty((len(n_prevs), safe_shape(y_train, 1)))
-mses_test = np.empty((len(n_prevs), safe_shape(y_train, 1)))
-for i, n_prev in enumerate(n_prevs):
-    model = linear_model.LinearRegression()
-    time_model = TimeSeriesRegressor(model, n_prev=n_prev)
-    time_model.fit(X_train, y_train)
-    res_test = time_model.predict(X_test)
-    res_train = time_model.predict(X_train)
-    mses_train[i, :] = mse(res_train, y_train[n_prev:], multioutput='raw_values')
-    mses_test[i, :] = mse(res_test, y_test[n_prev:], multioutput='raw_values')
+param_grid = [{'alpha': [.01, .05, .1, .5, 1, 5, 10]}]
+tsr = TimeSeriesRegressor(Lasso())
+grid = GridSearchCV(tsr, param_grid)
+grid.fit(X_train, y_train)
+
+pred_train_3 = grid.predict(X_train) #outputs a numpy array of length: len(X_train)-n_prev
+pred_test_3 = grid.predict(X_test)
+
+print(grid.grid_scores_)
 
 
-plt.boxplot(np.transpose(mses_test))
-plt.yscale('log')
 
 
-plot_train = False
-if plot_train: res_plot = res_train; y_plot = y_train
-else: res_plot = res_test; y_plot = y_test
-low = 0
-high = 50#len(res_test)-n_prev
+def train_test_plot(pred_train, y_train, pred_test, y_test, n_prev, titles, cap=4):
+    output_dim = 1 if len(y_test.shape) == 1 else y_test.shape[1]
+    if output_dim > cap:
+        output_dim = cap
+        print(output_dim)
 
-plot_res_vs_actual = False
-plot_scatter = False
-if plot_res_vs_actual:
-    for dim in range(min(safe_shape(res_plot, 1), 4)):
-        plt.subplot(2, 2, dim + 1)
-
-        if safe_shape(res_test, 1) == 1:
-            plt.plot(res_plot[low:high], label='Predicted')
-            plt.plot(y_plot[n_prev + low : n_prev + high], label='Actual')
+    for i in range(output_dim):
+        plt.subplot(output_dim, 2, 2*i + 1)
+        if output_dim == 1:
+            plt.plot(pred_train, 'r', label="Predicted")
+            plt.plot(y_train[n_prev:], 'b--', label="Actual")
         else:
-            plt.plot(res_plot[low:high, dim], label='Predicted')
-            plt.plot(y_plot[n_prev + low : n_prev + high, dim], label='Actual')
-        plt.legend(loc='lower left')
+            plt.plot(pred_train[:, i], 'r', label="Predicted")
+            plt.plot(y_train[n_prev:, i], 'b--', label="Actual")
+        # nprev: because the first predicted point needed n_prev steps of data
+        #plt.title("Training performance of " + titles[i])
+        #plt.legend(loc='lower right')
 
-if plot_scatter:
-    for dim in range(min(safe_shape(res_plot, 1), 4)):
-        plt.subplot(2, 2, dim + 1)
-
-        if safe_shape(res_test, 1) == 1:
-            xs = np.diff(y_plot[n_prev + low:n_prev + high])
-            ys = np.diff(res_plot[:])
+        plt.subplot(output_dim, 2, 2*i + 2)
+        if output_dim == 1:
+            plt.plot(pred_test, 'r', label="Predicted")
+            plt.plot(y_test[n_prev:], 'b--', label="Actual")
         else:
-            xs = np.diff(y_plot[n_prev + low : n_prev + high, dim])
-            ys = np.diff(res_plot[low:high, dim])
+            plt.plot(pred_test[:, i], 'r', label="Predicted")
+            plt.plot(y_test[n_prev:, i], 'b--', label="Actual")
+        # nprev: because the first predicted point needed n_prev steps of data
+        #plt.title("Testing performance of " + titles[i])
+        #plt.legend(loc='lower left')
+
+    plt.gcf().set_size_inches(15, 6)
+    plt.show()
 
 
-        plt.plot(xs, ys, 'ko')
-        plt.xlabel('actual')
-        plt.ylabel('predicted')
-
-
-
-plt.show()
-
-
-# df = get_data(['AAPL', 'QQQ','VZ','NKE','KMI'])
-# train_data = df.iloc[0:int(len(df) / 1.5), :]
-# test_data = df.iloc[int(len(df) / 1.5):len(df), :]
-# dim_reducer = PCA(n_components=100)
-# regressor = linear_model.LinearRegression()
-# model = Pipeline([('PCA',dim_reducer),('regressor', regressor)])
-# test_train_plot(model, train_data, test_data, n_prev=20)
+#train_test_plot(pred_train, y_train, pred_test, y_test, n_prev, ['A','AA','AAL','AAP'])

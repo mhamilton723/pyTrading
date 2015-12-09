@@ -7,23 +7,6 @@ import numpy as np
 import pandas as pd
 
 
-def time_series_split(X, test_size=.2, output_numpy=True):
-    is_pandas = isinstance(X, pd.DataFrame) or isinstance(X, pd.Series)
-    ntrn = int(len(X) * (1 - test_size))
-
-    if is_pandas:
-        X_train = X.iloc[0:ntrn]
-        X_test = X.iloc[ntrn:]
-    else:
-        X_train = X[0:ntrn]
-        X_test = X[ntrn:]
-
-    if output_numpy and is_pandas:
-        return X_train.as_matrix(), X_test.as_matrix()
-    else:
-        return X_train, X_test
-
-
 def safe_shape(array,i):
     try:
         return array.shape[i]
