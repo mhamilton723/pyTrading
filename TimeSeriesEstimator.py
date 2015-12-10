@@ -4,14 +4,12 @@ from sklearn.base import BaseEstimator, RegressorMixin, clone
 
 
 class TimeSeriesEstimator(BaseEstimator):
-
-    #TODO add set params method
+    # TODO add set params method
     def __init__(self, base_estimator, n_prev=3, n_ahead=1, parallel_models=False, **base_params):
         self.base_estimator = base_estimator.set_params(**base_params)
         self.parallel_models = parallel_models
         self.n_prev = n_prev
         self.n_ahead = n_ahead
-
         self._fit_estimators = None
 
     def set_params(self, **params):
@@ -33,7 +31,7 @@ class TimeSeriesEstimator(BaseEstimator):
         is_pandas = isinstance(dataX, pd.DataFrame)
 
         if dataY is not None:
-            #assert (type(dataX) is type(dataY)) TODO find way to still perform this check
+            # assert (type(dataX) is type(dataY)) TODO find way to still perform this check
             assert (len(dataX) == len(dataY))
 
         dlistX, dlistY = [], []
@@ -65,7 +63,7 @@ class TimeSeriesEstimator(BaseEstimator):
                 dlist.append(data[i, :, :].ravel())
         return np.array(dlist)
 
-    def offset_data(self,Y):
+    def offset_data(self, Y):
         if len(Y.shape) > 1:
             return Y[self.n_prev - 1 + self.n_ahead:, :]
         else:
@@ -121,3 +119,26 @@ def time_series_split(X, test_size=.2, output_numpy=True):
         return X_train.as_matrix(), X_test.as_matrix()
     else:
         return X_train, X_test
+
+
+def time_series_cv(n, n_folds, test_size=.2):
+    out = []
+    split_points = [(n * i / float(n_folds), n * (i + 1) / float(n_folds)) for i in range(n_folds)]
+    split_points = [(int(start), int(end)) for (start, end) in split_points]
+    for start, end in split_points:
+        ntrn = int((end - start) * (1 - test_size))
+        out.append((list(range(start, start + ntrn)), list(range(start + ntrn, end))))
+    return out
+
+
+def cascade_cv(n, n_folds, data_size=.8, test_size=.15):
+    out = []
+    shift = int(round((1 - data_size) * n / float(n_folds)))
+    if shift < 4:
+        raise (UserWarning("Small Shift warning: Consider less folds, or a smaller data size"))
+    for i in range(n_folds):
+        start = shift * i
+        end = min(start + int(data_size * n), n)
+        ntrn = int((end - start) * (1 - test_size))
+        out.append((list(range(start, start + ntrn)), list(range(start + ntrn, end))))
+    return out
