@@ -4,13 +4,14 @@ from sklearn.base import BaseEstimator, RegressorMixin, clone
 
 
 class TimeSeriesEstimator(BaseEstimator):
-    # TODO add set params method
+
     def __init__(self, base_estimator, n_prev=3, n_ahead=1, parallel_models=False, **base_params):
         self.base_estimator = base_estimator.set_params(**base_params)
         self.parallel_models = parallel_models
         self.n_prev = n_prev
         self.n_ahead = n_ahead
         self._fit_estimators = None
+        self._is_autocor = None
 
     def set_params(self, **params):
         for param, value in params.iteritems():
@@ -21,7 +22,7 @@ class TimeSeriesEstimator(BaseEstimator):
         return self
 
     def __repr__(self):
-        return "TimeSeriesEstimator: " + repr(self.base_algorithm)
+        return "TimeSeriesEstimator: " + repr(self.base_estimator)
 
     def _window_dataset(self, n_prev, dataX, dataY=None, n_ahead=1):
         """
@@ -76,6 +77,9 @@ class TimeSeriesEstimator(BaseEstimator):
 
     def fit(self, X, Y=None):
         ''' X and Y are datasets in chronological order, or X is a time series '''
+
+        self._is_autocor = True if Y is None else False
+
         X_data, Y_data = self._preprocess(X, Y)
 
         if self.parallel_models and len(Y_data.shape) > 1 and Y_data.shape[1] > 1:
@@ -88,12 +92,16 @@ class TimeSeriesEstimator(BaseEstimator):
         return self
 
 
+
 class TimeSeriesRegressor(TimeSeriesEstimator, RegressorMixin):
     def score(self, X, Y, **kwargs):
         return self.base_estimator.score(*self._preprocess(X, Y), **kwargs)
 
-    def predict(self, X):
-        X_new = self._preprocess(X, Y=None)[0]
+    def predict(self, X, preprocessed=False):
+        if not preprocessed:
+            X_new = self._preprocess(X, Y=None)[0]
+        else:
+            X_new = X
 
         if self._fit_estimators is not None:
             results = []
@@ -102,6 +110,19 @@ class TimeSeriesRegressor(TimeSeriesEstimator, RegressorMixin):
             return np.transpose(np.array(results))
         else:
             return self.base_estimator.predict(X_new)
+
+    def forecast(self, X, n_steps):
+        if not (self._is_autocor and self.n_ahead == 1): #TODO generalize and add exponential weighting on older predictions
+            raise ValueError("Need to be an auto-correlation predictor with n_ahead=1")
+
+        out = np.empty((n_steps, X.shape[1]))
+        previous = X[-self.n_prev:]
+        for i in range(n_steps):
+            next_step = self.predict(np.array([previous.ravel()]), preprocessed=True)
+            out[i, :] = next_step
+            previous = np.vstack((previous[1:], next_step))
+
+        return out
 
 
 def time_series_split(X, test_size=.2, output_numpy=True):

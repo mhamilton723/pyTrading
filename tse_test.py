@@ -43,24 +43,27 @@ def train_test_plot(pred_train, y_train, pred_test, y_test, n_prev, titles, cap=
 
 
 X = datasets('sp500')
-y = X['AAPL']
 X_train, X_test = time_series_split(X)
-y_train, y_test = time_series_split(y)
+
 
 n_prev = 3
-tsr = TimeSeriesRegressor(Lasso(), n_prev=n_prev)
+tsr = TimeSeriesRegressor(LinearRegression(), n_prev=n_prev)
+tsr.fit(X_train)
+fc = tsr.forecast(X_train, len(X_test))
+
+def changes(X):
+    return np.array([X[-1, i] - X[0, i] for i in range(X.shape[1])])
+
+#X_test_change = np.log(changes(X_test))
+#fc_change = np.log(changes(fc))
+#plt.plot(np.linspace(0,8),np.linspace(0,8),'b')
+#plt.plot(X_test_change,fc_change, 'ro')
 
 
-param_grid = [{'alpha': [.01, .05, .1, .5, 1, 5, 10]}]
-cv = cascade_cv(len(X_train), n_folds=5)
-grid = GridSearchCV(tsr, param_grid, cv=cv)
-grid.fit(X_train, y_train)
-pred_train_3 = grid.predict(X_train)  # outputs a numpy array of length: len(X_train)-n_prev
-pred_test_3 = grid.predict(X_test)
-print(grid.grid_scores_)
+for i in range(min(16,X_train.shape[1])):
+    plt.subplot(4,4,i+1)
+    plt.plot(fc[:, i],'r')
+    plt.plot(X_test[:, i],'b')
 
-print(grid.best_params_)
+plt.show()
 
-train_test_plot(pred_train_3, y_train, pred_test_3, y_test, n_prev, 'Optimized Lasso TSR on APPLE')
-
-# train_test_plot(pred_train, y_train, pred_test, y_test, n_prev, ['A','AA','AAL','AAP'])
