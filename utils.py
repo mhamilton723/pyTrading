@@ -7,6 +7,10 @@ import numpy as np
 import pandas as pd
 
 
+def access(dictionary,keys):
+    return [dictionary[key] for key in keys]
+
+
 def safe_shape(array,i):
     try:
         return array.shape[i]
@@ -122,7 +126,7 @@ def backtest(strategy, start="2014-1-1", end="2015-11-02", log=False, correct=Tr
         print(df.describe())
         strategy._log = True
     starting_balance = strategy.portfolio.balance
-    strategy.observe_data(df)
+    strategy.run(df)
     ending_value = strategy.value(correct=correct)
     if log:
         for transaction in strategy.portfolio.transactions:

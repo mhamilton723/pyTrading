@@ -73,4 +73,12 @@ class Portfolio(object):
         else:
             raise ValueError('No price found, dataset may be missing values')
 
+    def batch_buy(self, tickers, prices, weights):
+        orders = []
+        for price, weight in zip(prices, weights):
+            corrected_price = price + (price * self.commission)
+            n_shares = int((self.balance - self.flat_rate) * weight / corrected_price)
+            orders.append(n_shares)
 
+        for ticker, price, n_shares in zip(tickers, prices, orders):
+            self.buy(ticker, price, shares=n_shares)

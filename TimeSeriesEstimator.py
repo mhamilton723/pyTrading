@@ -115,6 +115,10 @@ class TimeSeriesRegressor(TimeSeriesEstimator, RegressorMixin):
         if not (self._is_autocor and self.n_ahead == 1): #TODO generalize and add exponential weighting on older predictions
             raise ValueError("Need to be an auto-correlation predictor with n_ahead=1")
 
+        is_pandas = isinstance(X, pd.DataFrame) or isinstance(X, pd.Series)
+        if is_pandas:
+            X=X.as_matrix()
+
         out = np.empty((n_steps, X.shape[1]))
         previous = X[-self.n_prev:]
         for i in range(n_steps):
