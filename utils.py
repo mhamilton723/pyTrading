@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 
+
 def access(dictionary,keys):
     return [dictionary[key] for key in keys]
 
@@ -94,7 +95,10 @@ def cache(cache_file):
             if load_success and loaded_args == args and loaded_kwargs == kwargs:
                 return loaded_data
             else:
-                data = func(*args, **kwargs)
+                if args:
+                    data = func(*args, **kwargs)
+                else:
+                    data = func(**kwargs)
                 obj = args, kwargs, data
                 pickle.dump(obj, open(cache_file, 'w+'))
                 return data
@@ -111,39 +115,7 @@ def get_data(tickers, start="2014-1-1", end="2015-11-02"):
     # df = df.iloc[1:len(df),:]
     return df
 
-
-def backtest(strategy, start="2014-1-1", end="2015-11-02", log=False, correct=True):
-    """
-    :param start: starting date in %Y-%m-%d
-    :param end: ending date in %Y-%m-%d
-    :param log: flag to turn on logging
-    :return: return relative to first stock purchase
-    """
-    df = get_data(strategy.tickers, start, end)
-    if df.empty:
-        raise ValueError("No stock data found")
-    if log:
-        print(df.describe())
-        strategy._log = True
-    starting_balance = strategy.portfolio.balance
-    strategy.run(df)
-    ending_value = strategy.value(correct=correct)
-    if log:
-        for transaction in strategy.portfolio.transactions:
-            print(transaction)
-        print(starting_balance, ending_value)
-
-    return (ending_value - starting_balance) * 100. / starting_balance
-
-
-def strategy_test(strategies, tickers, start="2014-1-1", end="2015-11-02", starting_capital=1000):
-    for strategy_object in strategies:
-        for ticker in tickers:
-            strategy = strategy_object(starting_capital, ticker)
-            backtest_result = round(backtest(strategy, start=start, end=end), 2)
-            print("Percent return for " + str(strategy) + " for stock " + ticker + ": %" + str(backtest_result))
-
-
+@cache("data/sp500_data_cache.pkl")
 def load_s_and_p_data(start="2009-1-1", end="2015-11-02",
                       ticker_names="data/s_and_p_500_names.csv",
                       tickers=None, clean=True, only_close=True):
@@ -154,9 +126,26 @@ def load_s_and_p_data(start="2009-1-1", end="2015-11-02",
     if only_close:
         data = data['Adj Close']
     if clean:
-        data = data.dropna(axis=1)
+        if only_close:
+            data = data.dropna(axis=1)
+        else:
+            data = data.dropna(axis=2)
 
     return data
+
+@cache("data/sp500_names_cache.pkl")
+def s_and_p_names(start="2009-1-1", end="2015-11-02",
+                  ticker_names="data/s_and_p_500_names.csv",
+                  clean=True):
+
+    s_and_p = pd.read_csv(ticker_names)
+    tickers = list(s_and_p['Ticker'])
+    data = get_data(tickers, start=start, end=end)
+    if clean:
+        data = data.dropna(axis=2)
+
+    return list(data['Adj Close'].columns.values)
+
 
 
 def window_dataset(data, n_prev=1):

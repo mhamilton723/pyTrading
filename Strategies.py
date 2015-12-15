@@ -2,8 +2,10 @@ from collections import deque
 from Portfolio import Portfolio
 from TimeSeriesEstimator import TimeSeriesRegressor
 from sklearn.linear_model import LinearRegression
+import itertools
 import numpy as np
-
+import random
+from utils import cache, load_s_and_p_data,s_and_p_names
 
 class Strategy(object):
 
@@ -97,10 +99,21 @@ class WeightedMultiStockStrategy(MultiStockStrategy):
 
 class BuyAndHoldStrategy(WeightedMultiStockStrategy):
     def __init__(self, balance, tickers, weights='uniform', wait=0,
-                 log=False, commission=.0002, flat_rate=8):
+                 log=False, commission=.0002, flat_rate=8, fast=True):
         super(BuyAndHoldStrategy, self).__init__(balance, tickers,
                                                  weights=weights, log=log, commission=commission, flat_rate=flat_rate)
         self.wait = wait
+        self.fast = fast
+
+    def run(self, data_stream):
+        if self.fast:
+            self._today_data = data_stream.iloc[:, self.wait, :]
+            self.day = self.wait
+            self.act()
+            self._today_data = data_stream.iloc[:, -1, :]
+            self.day = data_stream.shape[1] - 1
+        else:
+            super(BuyAndHoldStrategy, self).run(data_stream)
 
     def observe_datum(self, datum):
         pass
@@ -173,9 +186,13 @@ class InformedBuyAndHoldStrategy(MultiStockStrategy):
         raise NotImplementedError
 
 class TSEBuyAndHoldStrategy(InformedBuyAndHoldStrategy):
-    def __init__(self, balance, tickers, base_model=LinearRegression(),
-                 n_prev=2, wait=100, steps_ahead=100, k=10, envelope='proportional',
+    def __init__(self, balance, tickers=None, base_model=LinearRegression(),
+                 n_prev=2, wait=100, steps_ahead=100, k=5, envelope='proportional',
                  log=False, commission=.0002, flat_rate=8):
+
+        if tickers is None:
+            tickers = s_and_p_names()
+
         super(TSEBuyAndHoldStrategy, self).__init__(balance, tickers,
                                           log=log, commission=commission, flat_rate=flat_rate)
         self.model = TimeSeriesRegressor(base_model, n_ahead=1, n_prev=n_prev)
@@ -191,7 +208,7 @@ class TSEBuyAndHoldStrategy(InformedBuyAndHoldStrategy):
         self.model.fit(self.observed_data)
         fc = self.model.forecast(self.observed_data, self.steps_ahead)
         changes = np.array([fc[-1, i] - fc[0, i] for i in range(fc.shape[1])])
-        top_k = changes.argsort()[-self.k:][::-1]
+        top_k = changes.argsort()[::-1]
         top_tickers = self.names[top_k]
         if self.envelope == 'proportional':
             top_weights = changes[top_k]
@@ -209,3 +226,53 @@ class TSEBuyAndHoldStrategy(InformedBuyAndHoldStrategy):
     def __str__(self):
         return "TSE Buy and Hold Strategy"
 
+
+@cache('data/buy_and_hold_spread_cache.pkl')
+def buy_and_hold_spread(k=5, wait=100, start="2014-1-1", end="2015-11-02", iterations=100):
+    sp500_names = s_and_p_names(start, end)
+    out = []
+    if iterations == 'full':
+        for tickers in itertools.combinations(sp500_names, k):
+            tickers = list(tickers)
+            bs = BuyAndHoldStrategy(10000, tickers, wait=wait)
+            out.append(backtest(bs, start=start, end=end, correct=False) )
+    else:
+        for i in range(iterations):
+            tickers = random.sample(sp500_names, k)
+            bs = BuyAndHoldStrategy(10000, tickers, wait=wait)
+            out.append(backtest(bs, start=start, end=end, correct=False) )
+
+    return out
+
+
+def backtest(strategy, start="2014-1-1", end="2015-11-02", log=False, correct=True):
+    """
+    :param start: starting date in %Y-%m-%d
+    :param end: ending date in %Y-%m-%d
+    :param log: flag to turn on logging
+    :return: return relative to first stock purchase
+    """
+    #df = get_data(strategy.tickers, start, end)
+    df = load_s_and_p_data(start=start, end=end, only_close=False)
+    if df.empty:
+        raise ValueError("No stock data found")
+    if log:
+        print(df.describe())
+        strategy._log = True
+    starting_balance = strategy.portfolio.balance
+    strategy.run(df)
+    ending_value = strategy.value(correct=correct)
+    if log:
+        for transaction in strategy.portfolio.transactions:
+            print(transaction)
+        print(starting_balance, ending_value)
+
+    return (ending_value - starting_balance) * 100. / starting_balance
+
+
+def strategy_test(strategies, tickers, start="2014-1-1", end="2015-11-02", starting_capital=1000):
+    for strategy_object in strategies:
+        for ticker in tickers:
+            strategy = strategy_object(starting_capital, ticker)
+            backtest_result = round(backtest(strategy, start=start, end=end), 2)
+            print("Percent return for " + str(strategy) + " for stock " + ticker + ": %" + str(backtest_result))

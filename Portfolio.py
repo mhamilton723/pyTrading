@@ -39,7 +39,7 @@ class Portfolio(object):
             return price * shares - (shares * price * self.commission) - self.flat_rate
 
     def sell(self, ticker, price, shares=1):
-        corrected_price = self.corrected_price(price, shares,buying=False)
+        corrected_price = self.corrected_price(price, shares, buying=False)
         if self.equity[ticker] >= shares:
             self.equity[ticker] -= shares
             self.balance += corrected_price
@@ -66,7 +66,7 @@ class Portfolio(object):
         if price:
             corrected_price = price + (price * self.commission)
             if self.balance - self.flat_rate >= corrected_price:
-                n_shares = int((self.balance - self.flat_rate) * weight / corrected_price)
+                n_shares = (weight * self.balance - self.flat_rate) // (price + price * self.commission)
                 self.buy(ticker, price, n_shares)
             else:
                 raise ValueError("Cannot afford to buy this stock")
@@ -76,8 +76,7 @@ class Portfolio(object):
     def batch_buy(self, tickers, prices, weights):
         orders = []
         for price, weight in zip(prices, weights):
-            corrected_price = price + (price * self.commission)
-            n_shares = int((self.balance - self.flat_rate) * weight / corrected_price)
+            n_shares = (weight * self.balance - self.flat_rate) // (price + price * self.commission)
             orders.append(n_shares)
 
         for ticker, price, n_shares in zip(tickers, prices, orders):
