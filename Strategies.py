@@ -59,7 +59,8 @@ class Strategy(object):
         if type(weights) is dict:
             weights = [weights[ticker] for ticker in tickers]
         if sum(weights) > 1:
-            raise ValueError("weights cannot sum to something greater than 1")
+            weights = [w/sum(weights) for w in weights]
+
         self.portfolio.batch_buy(tickers, self.price(tickers), weights)
 
 

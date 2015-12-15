@@ -1,5 +1,6 @@
 import pandas.io.data as web
 from datetime import datetime
+import matplotlib.pyplot as plt
 import pickle
 import os
 import random
@@ -259,3 +260,36 @@ def forecast(model, seed, n_ahead=300):
         prev = np.vstack((seed[:-1, :], new_val))
 
     return output
+
+def train_test_plot(pred_train, y_train, pred_test, y_test, n_prev, titles, cap=4):
+    output_dim = 1 if len(y_test.shape) == 1 else y_test.shape[1]
+    if output_dim > cap:
+        output_dim = cap
+        print(output_dim)
+
+    for i in range(output_dim):
+        plt.subplot(output_dim, 2, 2 * i + 1)
+        if output_dim == 1:
+            plt.plot(pred_train, 'r', label="Predicted")
+            plt.plot(y_train[n_prev:], 'b--', label="Actual")
+        else:
+            plt.plot(pred_train[:, i], 'r', label="Predicted")
+            plt.plot(y_train[n_prev:, i], 'b--', label="Actual")
+        # nprev: because the first predicted point needed n_prev steps of data
+        # plt.title("Training performance of " + titles[i])
+        # plt.legend(loc='lower right')
+
+        plt.subplot(output_dim, 2, 2 * i + 2)
+        if output_dim == 1:
+            plt.plot(pred_test, 'r', label="Predicted")
+            plt.plot(y_test[n_prev:], 'b--', label="Actual")
+        else:
+            plt.plot(pred_test[:, i], 'r', label="Predicted")
+            plt.plot(y_test[n_prev:, i], 'b--', label="Actual")
+            # nprev: because the first predicted point needed n_prev steps of data
+            # plt.title("Testing performance of " + titles[i])
+            # plt.legend(loc='lower left')
+
+    plt.gcf().set_size_inches(15, 6)
+    plt.show()
+

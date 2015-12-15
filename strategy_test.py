@@ -12,7 +12,7 @@ def tse_results(balance=10000, ks=range(1, 10), wait=100, envelope='uniform', st
     strategies = [TSEBuyAndHoldStrategy(balance=balance, k=k, wait=wait, envelope=envelope) for k in ks]
     return [backtest(strategy, start=start, end=end, correct=False) for strategy in strategies]
 
-ks = range(1,10)
+ks = range(1, 10)
 bh_spreads = buy_and_hold_spreads(ks=ks)
 tse_returns = tse_results(ks=ks)
 
