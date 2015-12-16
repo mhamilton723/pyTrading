@@ -1,8 +1,0 @@
-#!/bin/bash 
-		#PBS -q fas_normal
-		#PBS -N deep_RNN_synthetic 
-		#PBS -l nodes=1:ppn=8,mem=15gb 
-		#PBS -l walltime=23:00:00 
-		#PBS -j oe 
-		cd ~/machine_learning/stock_sandbox 
-		python stock_rnn.py --model_name deep_RNN --dataset synthetic > scripts/deep_RNN_synthetic_log.txt

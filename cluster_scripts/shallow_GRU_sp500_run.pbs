@@ -1,0 +1,8 @@
+#!/bin/bash 
+		#PBS -q fas_long 
+		#PBS -N shallow_GRU_sp500 
+		#PBS -l nodes=1:ppn=8,mem=15gb 
+		#PBS -l walltime=71:00:00 
+		#PBS -j oe 
+		cd ~/machine_learning/stock_sandbox 
+		python stock_rnn.py --model_name shallow_GRU --dataset sp500 > scripts/shallow_GRU_sp500_log.txt

@@ -12,6 +12,12 @@ class Portfolio(object):
     def tickers(self):
         return self.equity.keys()
 
+    def add_capital(self, amount):
+        self.balance += amount
+
+    def remove_capital(self, amount):
+        self.balance -= amount
+
     def value(self, datum, correct=True):
         if correct:
             return sum(self.corrected_price(datum['Adj Close'][ticker],
@@ -66,7 +72,7 @@ class Portfolio(object):
         if price:
             corrected_price = price + (price * self.commission)
             if self.balance - self.flat_rate >= corrected_price:
-                n_shares = (weight * self.balance - self.flat_rate) // (price + price * self.commission)
+                n_shares = int((weight * self.balance - self.flat_rate) // (price + price * self.commission))
                 self.buy(ticker, price, n_shares)
             else:
                 raise ValueError("Cannot afford to buy this stock")

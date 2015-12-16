@@ -1,8 +1,0 @@
-#!/bin/bash 
-		#PBS -q fas_devel 
-		#PBS -N shallow_RNN_jigsaw 
-		#PBS -l nodes=1:ppn=8,mem=15gb 
-		#PBS -l walltime=4:00:00 
-		#PBS -j oe 
-		cd ~/machine_learning/stock_sandbox 
-		python stock_rnn.py --model_name shallow_RNN --dataset jigsaw > scripts/shallow_RNN_jigsaw_log.txt

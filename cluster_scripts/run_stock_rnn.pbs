@@ -1,0 +1,8 @@
+#!/bin/bash
+#PBS -q fas_normal
+#PBS -N stock_rnn
+#PBS -l nodes=1:ppn=8,mem=5gb
+#PBS -l walltime=20:00:00
+
+cd $PBS_O_WORKDIR
+python ~/machine_learning/stock_sandbox/stock_rnn.py > ~/machine_learning/stock_sandbox/scripts/logfile.txt

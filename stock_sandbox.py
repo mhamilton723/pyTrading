@@ -1,28 +1,10 @@
 from __future__ import print_function
-import pandas.io.data as web
-from datetime import datetime
-from utils import backtest
-import numpy as np
-from Strategies import MomentumStrategy, BuyAndHoldStrategy
-from sklearn import linear_model
-from sklearn.pipeline import Pipeline
-from sklearn.decomposition import PCA
-from sklearn.ensemble import BaggingRegressor
-from sklearn.kernel_ridge import KernelRidge
-from sklearn.gaussian_process import GaussianProcess
-import matplotlib.pyplot as plt
-
-
-import pandas
-
-import statsmodels.api as sm
-
 import math
 import random
-from utils import load_s_and_p_data, datasets
 
-
-
+import numpy as np
+from sklearn.gaussian_process import GaussianProcess
+import matplotlib.pyplot as plt
 
 '''
 df = get_data('AAPL')
