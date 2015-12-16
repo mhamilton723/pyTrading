@@ -18,17 +18,17 @@ The current dependencies are mostly found in anaconda with the exception of thea
 PyTrading is a python package designed to facilitate the creation and testing of automated trading strategies. 
 The main object of the package is the strategy object.
 
-'''
+```
 from Strategies import BuyAndHoldStrategy, backtest
 
 tickers = ['AAPL','VZ']
 bs = BuyAndHoldStrategy(10000, tickers)
 percent_gains = backtest(bs,start="2014-1-1", end="2015-11-02",correct=False)
 print('Buy and hold strategy made a %{} return on investment'.format(round(percent_gains,1)) ) 
-'''
-'''
+```
+```
 Buy and hold strategy made a %31.1 return on investment
-'''
+```
 
 See the ipython notebook demo for more examples and usage! 
 
