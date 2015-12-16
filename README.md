@@ -1,11 +1,11 @@
 #PyTrading
 Python classes for automated stock trading.
 
-*Classes for portfolios and strategies
-*Buy/hold, momentum, and linear/nonlinear regression strategy classes
-*Backtesting functions defined for any strategy object
-*example omega cluster scripts
-*GPU enabled Recurrent Neural Nets, LSTMs for stock prediction
+* Classes for portfolios and strategies
+* Buy/hold, momentum, and linear/nonlinear regression strategy classes
+* Backtesting functions defined for any strategy object
+* example omega cluster scripts
+* GPU enabled Recurrent Neural Nets, LSTMs for stock prediction
 
 
 ##Install:
@@ -33,10 +33,9 @@ Buy and hold strategy made a %31.1 return on investment
 See the ipython notebook demo for more examples and usage! 
 
 ##Needed:
-*Unit tests
-*Documentation
-*More Stock Strategies
-*tick data 
+* Unit tests
+* More Stock Strategies
+* tick data 
 
 
 # TimeSeriesRegressor
