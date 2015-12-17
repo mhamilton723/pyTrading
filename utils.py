@@ -10,6 +10,8 @@ import sys
 import random
 import numpy as np
 import pandas as pd
+from pandas.util.testing import assert_frame_equal
+
 
 
 
@@ -91,24 +93,46 @@ def cache(cache_file):
         def func_wrapper(*args, **kwargs):
             if os.path.exists(cache_file):
                 if sys.version_info[0] < 3:
-                    loaded_args, loaded_kwargs, loaded_data = pickle.load(open(cache_file, 'r'))
+                    loaded_arg_dict, loaded_data = pickle.load(open(cache_file, 'r'))
                 else:
                     # for python 3.x to read a file pickled by python 2.x
-                    loaded_args, loaded_kwargs, loaded_data = pickle.load(open(cache_file, 'rb'),
+                    loaded_arg_dict, loaded_data = pickle.load(open(cache_file, 'rb'),
                                                                           encoding='latin1')
                 load_success = True
             else:
                 load_success = False
-                loaded_args, loaded_kwargs, loaded_data = None, None, None
+                loaded_arg_dict, loaded_data = None, None
 
-            if load_success and loaded_args == args and loaded_kwargs == kwargs:
+            arg_dict = {}
+            func_vars = func.func_code.co_varnames
+            for i, arg in enumerate(args):
+                arg_dict[func_vars[i]] = arg
+            for i, arg in enumerate(func.func_defaults):
+                arg_dict[func_vars[i+len(args)]] = arg
+            for k, v in kwargs.iteritems():
+                arg_dict[k] = v
+
+            is_same_args = True
+            if load_success:
+                for k, v in loaded_arg_dict.iteritems():
+                    try:
+                        if arg_dict[k] != v:
+                            is_same_args = False
+                            break
+                    except ValueError: #for pandas dataframes
+                        if not arg_dict[k].equals(v):
+                            is_same_args = False
+                            break
+
+
+            if load_success and is_same_args:
                 return loaded_data
             else:
                 if args:
                     data = func(*args, **kwargs)
                 else:
                     data = func(**kwargs)
-                obj = args, kwargs, data
+                obj = arg_dict, data
                 pickle.dump(obj, open(cache_file, 'w+'))
                 return data
         return func_wrapper
