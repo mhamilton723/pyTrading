@@ -1,8 +1,12 @@
-import pandas.io.data as web
+#import pandas.io.data as web
+# pandas.io.data is going to be deprecated. The library is moving to a
+# stand-alone package, pandas-datareader.
+import pandas_datareader.data as web
 from datetime import datetime
 import matplotlib.pyplot as plt
 import pickle
 import os
+import sys
 import random
 import numpy as np
 import pandas as pd
@@ -30,14 +34,14 @@ def mse(X1, X2, multioutput='raw_values'):
         return np.mean(np.mean((X1 - X2)**2, axis=0)**.5)
 
 
-def datasets(name, tickers=None):
+def datasets(name, tickers=None, log=False):
     if name == "sp500":
         ##### Real Stock Data
-        print('Using sp500 data')
+        if log: print('Using sp500 data')
         data = load_s_and_p_data(start="2014-1-1", tickers=tickers)
     elif name == "synthetic":
         ##### Synthetic data for testing purposes
-        print('Using Synthetic data')
+        if log: print('Using Synthetic data')
         values = 10000
         s = pd.Series(range(values))
         noise = pd.Series(np.random.randn(values))
@@ -49,14 +53,14 @@ def datasets(name, tickers=None):
         data = pd.DataFrame(d)
     elif name == "jigsaw":
         ##### Easy synthetic data for testing purposes
-        print('Using jigsaw data')
+        if log: print('Using jigsaw data')
         flow = (list(range(1, 10, 1)) + list(range(10, 1, -1))) * 1000
         pdata = pd.DataFrame({"a": flow, "b": flow})
         pdata.b = pdata.b.shift(9)
         data = pdata.iloc[10:] * random.random()  # some noise
     elif name == "linear":
         ##### Easy synthetic data for testing purposes
-        print('Using linear data')
+        if log: print('Using linear data')
         flow = list(range(0, 10000, 2))
         pdata = pd.DataFrame({"a": flow, "b": flow})
         pdata.b = pdata.b + .5
@@ -64,7 +68,7 @@ def datasets(name, tickers=None):
         #pdata.iloc[10:] * random.random()  # some noise
     elif name == "autocorr":
         ##### Easy synthetic data for testing purposes
-        print('Using autocorr data')
+        if log: print('Using autocorr data')
         flow1 = gen_linear_seq(1.01, .002)
         flow2 = gen_linear_seq(1.02, .001)
         pdata = pd.DataFrame({"a": flow1, "b": flow2})
@@ -74,7 +78,6 @@ def datasets(name, tickers=None):
         raise ValueError('Not a legal dataset name')
 
     return data
-
 
 def gen_linear_seq(a, b, N=10000, start=1):
     out = [start]
@@ -87,7 +90,12 @@ def cache(cache_file):
     def cache_decorator(func):
         def func_wrapper(*args, **kwargs):
             if os.path.exists(cache_file):
-                loaded_args, loaded_kwargs, loaded_data = pickle.load(open(cache_file, 'r'))
+                if sys.version_info[0] < 3:
+                    loaded_args, loaded_kwargs, loaded_data = pickle.load(open(cache_file, 'r'))
+                else:
+                    # for python 3.x to read a file pickled by python 2.x
+                    loaded_args, loaded_kwargs, loaded_data = pickle.load(open(cache_file, 'rb'),
+                                                                          encoding='latin1')
                 load_success = True
             else:
                 load_success = False
@@ -164,8 +172,8 @@ def window_dataset(data, n_prev=1):
 
 def masked_dataset(data, n_prev=3, n_masked=2, predict_ahead=1):
     """
-	data should be pd.DataFrame()
-	"""
+    data should be pd.DataFrame()
+    """
     docX, docY = [], []
     for i in range(len(data) - n_prev - n_masked - predict_ahead):
         x = data.iloc[i:i + n_prev].as_matrix()
@@ -181,8 +189,8 @@ def masked_dataset(data, n_prev=3, n_masked=2, predict_ahead=1):
 
 def prediction_dataset(data, n_samples=50, n_ahead=1):
     """
-	data should be pd.DataFrame()
-	"""
+    data should be pd.DataFrame()
+    """
     docX, docY = [], []
     for i in range(len(data) - n_samples - n_ahead):
         x = data.iloc[i:i + n_samples].as_matrix()
@@ -196,8 +204,8 @@ def prediction_dataset(data, n_samples=50, n_ahead=1):
 
 def seq2seq_dataset(data, n_samples=50, n_ahead=50):
     """
-	data should be pd.DataFrame()
-	"""
+    data should be pd.DataFrame()
+    """
     docX, docY = [], []
     for i in range(len(data) - n_samples - n_ahead):
         x = data.iloc[i:i + n_samples].as_matrix()
@@ -211,8 +219,8 @@ def seq2seq_dataset(data, n_samples=50, n_ahead=50):
 
 def test_train_split(df, test_size=.1, splitting_method='prediction', **kwargs):
     """
-	This just splits data to training and testing parts
-	"""
+    This just splits data to training and testing parts
+    """
 
     ntrn = int(len(df) * (1 - test_size))
 
