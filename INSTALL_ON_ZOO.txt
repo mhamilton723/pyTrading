@@ -1,0 +1,21 @@
+#Download and install anaconda for python 2.7:
+http://docs.continuum.io/anaconda/install
+
+#Download and install pandas datareader for stock data:
+conda install pandas-datareader
+
+#go into the directory and run a test file 
+cd pyTrading
+python strategy_test.py
+
+#This should regenerate one of the figures results/strategy_test.png
+
+#to use the ipython notebooks view them in the github repo:
+https://github.com/mhamilton723/pyTrading
+
+# To run them interactively please email:
+# mark.hamilton@yale.edu
+# and I will add you to the sage cloud project
+
+
+
